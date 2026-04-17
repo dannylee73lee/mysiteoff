@@ -144,7 +144,7 @@ if CHANGES_FILE.exists():
     df_log = pd.DataFrame(logs)
     if not df_log.empty:
         st.dataframe(df_log[["ts","user","sitekey","col","old","new"]].tail(50),
-                     use_container_width=True, hide_index=True)
+                     width="stretch", hide_index=True)
     else:
         st.info("변경 이력이 없습니다.")
 else:

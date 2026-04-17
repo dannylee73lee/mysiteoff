@@ -255,7 +255,7 @@ with tab_chart:
         fig1.update_yaxes(title_text="달성률(%)", secondary_y=True,
                           range=[0, 130], tickfont=dict(size=10))
         fig1.update_xaxes(tickfont=dict(size=10))
-        st.plotly_chart(fig1, use_container_width=True)
+        st.plotly_chart(fig1, width="stretch")
 
         # 미니 스탯
         c1a, c1b, c1c = st.columns(3)
@@ -301,7 +301,7 @@ with tab_chart:
                           gridcolor="rgba(128,128,128,0.15)", tickfont=dict(size=10))
         fig2.update_yaxes(title_text="누계(억)", secondary_y=True, tickfont=dict(size=10))
         fig2.update_xaxes(tickfont=dict(size=10))
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, width="stretch")
 
         c2a, c2b, c2c = st.columns(3)
         c2a.metric("임차", f"{rent_conf}억")
@@ -333,7 +333,7 @@ with tab_chart:
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
             showlegend=True,
         )
-        st.plotly_chart(fig3, use_container_width=True)
+        st.plotly_chart(fig3, width="stretch")
 
         for _, row in biz_sum.iterrows():
             pct = round(row["건수"] / total_conf * 100, 0) if total_conf else 0
@@ -379,7 +379,7 @@ with tab_chart:
         fig4.update_yaxes(title_text="대", gridcolor="rgba(128,128,128,0.15)",
                           tickfont=dict(size=10))
         fig4.update_xaxes(tickfont=dict(size=10))
-        st.plotly_chart(fig4, use_container_width=True)
+        st.plotly_chart(fig4, width="stretch")
 
         eq_totals = [sum(eq[m].values()) for m in eq_months]
         c4a, c4b, c4c, c4d = st.columns(4)
@@ -420,7 +420,7 @@ with tab_chart:
             fig5.update_yaxes(title_text="미처리 누계", secondary_y=True,
                                tickfont=dict(size=10), dtick=1)
             fig5.update_xaxes(tickfont=dict(size=10))
-            st.plotly_chart(fig5, use_container_width=True)
+            st.plotly_chart(fig5, width="stretch")
 
             c5a, c5b, c5c = st.columns(3)
             c5a.metric("발생",    f"{voc_df2['발생'].sum()}건")
@@ -551,7 +551,7 @@ with tab_detail:
             xaxis=dict(tickfont=dict(size=10)),
             showlegend=False,
         )
-        st.plotly_chart(fig_pct, use_container_width=True)
+        st.plotly_chart(fig_pct, width="stretch")
 
     # 절감유형 비율
     with col_d2:
@@ -571,7 +571,7 @@ with tab_detail:
                         x=0.75, y=0.5),
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
         )
-        st.plotly_chart(fig_sav, use_container_width=True)
+        st.plotly_chart(fig_sav, width="stretch")
 
 
 # ════════════════════════════════════════════════════════════
@@ -606,7 +606,7 @@ with tab_analysis:
                              gridcolor="rgba(128,128,128,0.15)",
                              tickfont=dict(size=10))
         fig_a1.update_xaxes(tickfont=dict(size=11))
-        st.plotly_chart(fig_a1, use_container_width=True)
+        st.plotly_chart(fig_a1, width="stretch")
 
     # 사업유형별 임차료 절감 수평 막대
     with col_a2:
@@ -629,7 +629,7 @@ with tab_analysis:
         fig_a2.update_xaxes(title_text="억원", tickfont=dict(size=10),
                              gridcolor="rgba(128,128,128,0.15)")
         fig_a2.update_yaxes(tickfont=dict(size=11))
-        st.plotly_chart(fig_a2, use_container_width=True)
+        st.plotly_chart(fig_a2, width="stretch")
 
     st.divider()
     st.markdown("##### 사업유형별 상세 현황")

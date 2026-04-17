@@ -92,7 +92,7 @@ edited = st.data_editor(
     df_opt[show_cols].reset_index(drop=True),
     column_config=col_config,
     disabled=[c for c in show_cols if c not in ("inv_bun","inv_bae")],
-    use_container_width=True,
+    width="stretch",
     hide_index=True,
     num_rows="fixed",
     key="invest_editor",
@@ -135,7 +135,7 @@ else:
         fig_bep.update_yaxes(title_text="건수",
                              gridcolor="rgba(128,128,128,0.15)",
                              tickfont=dict(size=10))
-        st.plotly_chart(fig_bep, use_container_width=True)
+        st.plotly_chart(fig_bep, width="stretch")
 
     with col_g2:
         # BEP 구간별 건수
@@ -161,7 +161,7 @@ else:
         fig_seg.update_yaxes(title_text="건수",
                              gridcolor="rgba(128,128,128,0.15)",
                              tickfont=dict(size=10))
-        st.plotly_chart(fig_seg, use_container_width=True)
+        st.plotly_chart(fig_seg, width="stretch")
 
 st.divider()
 st.markdown("##### BEP 계산 공식")

@@ -111,7 +111,7 @@ def make_editor(df_in: pd.DataFrame, key: str, locked: bool = False):
         disp,
         column_config=col_config,
         disabled=disabled,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         num_rows="fixed",
         key=key,
