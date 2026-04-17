@@ -129,14 +129,17 @@ def equipment_summary(df: pd.DataFrame) -> dict:
 
 
 def voc_summary(df: pd.DataFrame) -> pd.DataFrame:
-    """VoC 월별 현황"""
+    """VoC 월별 현황 — voc 컬럼 'Y' 값 기준 집계"""
     rows = []
     remain = 0
     for m in ["1월", "2월", "3월"]:
         sub = df[df["off_month"] == m]
-        issued = sub["voc"].notna().sum() if "voc" in df.columns else 0
-        # 샘플: 발생의 80% 처리 완료 가정
+        if "voc" in df.columns:
+            issued = int((sub["voc"].astype(str).str.upper() == "Y").sum())
+        else:
+            issued = 0
+        # 처리완료: 발생의 75% (실제 데이터 연결 전 추정)
         done = int(issued * 0.75)
         remain += (issued - done)
-        rows.append({"월": m, "발생": issued, "처리완료": done, "미처리누계": remain})
+        rows.append({"월": m, "발생": issued, "처리완료": done, "미처리누계": int(remain)})
     return pd.DataFrame(rows)

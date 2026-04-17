@@ -127,9 +127,11 @@ with st.sidebar:
     st.divider()
     # 데이터 파일 상태
     st.markdown("**데이터 파일**")
+    main_icon = "🟢" if MAIN_FILE.exists() else "🟡"
+    rent_icon = "🟢" if RENT_FILE.exists() else "🟡"
     st.markdown(
-        f"{'🟢' if MAIN_FILE.exists() else '🟡'} 중부_원시데이터.xlsx  \n"
-        f"{'🟢' if RENT_FILE.exists() else '🟡'} 임차_전기DB.xlsx"
+        main_icon + " 중부_원시데이터.xlsx  \n"
+        + rent_icon + " 임차_전기DB.xlsx"
     )
     if not MAIN_FILE.exists():
         st.caption("⚠️ 샘플 데이터로 표시 중")
@@ -170,8 +172,9 @@ total_conf   = len(df_confirmed)
 rent_conf    = round(df_confirmed["savings_ann"].sum() * 0.85 / 10000, 1)
 elec_conf    = round(df_confirmed["elec_ann"].sum() / 10000, 1)
 inv_conf     = round(df_confirmed["inv_total"].sum() / 10000, 1)
-net_conf     = round((df_confirmed["net_savings"]).sum() / 10000, 1)
+net_conf     = round(df_confirmed["net_savings"].sum() / 10000, 1)
 voc_df       = voc_summary(df_all_months)
+voc_issued   = int(voc_df["발생"].sum()) if len(voc_df) > 0 else 0
 voc_open     = int(voc_df["미처리누계"].iloc[-1]) if len(voc_df) > 0 else 0
 eq_data      = equipment_summary(df_all_months)
 eq_total     = sum(sum(v.values()) for v in eq_data.values())
@@ -181,7 +184,7 @@ k1, k2, k3, k4, k5 = st.columns(5)
 k1.metric("누적 실적 (1~3월)", f"{total_conf}개소", f"목표 {ANNUAL_GOAL} 대비 {pct_conf}%")
 k2.metric("확정 절감 임차료", f"{rent_conf}억", "순절감 기준")
 k3.metric("확정 절감 전기료", f"{elec_conf}억", "순절감 기준")
-k4.metric("VoC 미처리", f"{voc_open}건", f"발생 {voc_df['발생'].sum() if len(voc_df) else 0}건 중")
+k4.metric("VoC 미처리", f"{voc_open}건", f"발생 {voc_issued}건 중")
 k5.metric("철거 장비 누계", f"{eq_total}대", "1~3월 합산")
 
 
@@ -442,37 +445,59 @@ with tab_detail:
         bg, fg = colors.get(s, ("#F1EFE8","#5F5E5A"))
         return f'<span style="background:{bg};color:{fg};border-radius:4px;padding:1px 7px;font-size:10px;font-weight:500">{s}</span>'
 
+    def fmt(v, suffix="", color=None):
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            return '<span style="color:#888">—</span>'
+        s = str(v) + suffix
+        if color:
+            return '<span style="color:{};font-weight:500">{}</span>'.format(color, s)
+        return s
+
+    def badge_sav(val, bg, fg):
+        return '<span style="background:{};color:{};border-radius:3px;padding:0 5px;font-size:10px">{}</span>'.format(bg, fg, val)
+
     rows_html = []
     for _, row in m_sum.iterrows():
-        def fmt(v, suffix="", color=None):
-            if v is None or (isinstance(v, float) and pd.isna(v)):
-                return '<span style="color:#888">—</span>'
-            s = f"{v}{suffix}"
-            return f'<span style="color:{color};font-weight:500">{s}</span>' if color else s
+        mon         = row["월"]
+        actual      = row["실적"]
+        cumul       = row["누계"]
+        pct_val     = row["누계달성률"]
+        c_ije       = int(row["임차+전기"])
+        c_elec      = int(row["전기만"])
+        c_none      = int(row["절감없음"])
+        r_rent      = row["임차료절감"]
+        r_elec      = row["전기료절감"]
+        r_inv       = row["투자비"]
+        r_net       = row["순절감"]
+        status      = row["상태"]
 
-        pct_val = row["누계달성률"]
-        if pct_val is not None:
+        # 누계 달성률 색
+        if pct_val is not None and not pd.isna(pct_val):
             pct_color = C_GREEN if pct_val >= 100 else (C_AMBER if pct_val >= 50 else C_RED)
-            pct_disp = f'<span style="color:{pct_color};font-weight:500">{pct_val}%</span>'
+            pct_disp  = '<span style="color:{};font-weight:500">{}%</span>'.format(pct_color, pct_val)
         else:
             pct_disp = '<span style="color:#888">—</span>'
 
-        rows_html.append(
-            f"<tr>"
-            f"<td><b>{row['월']}</b></td>"
-            f"<td style='text-align:right'>{fmt(row['실적'] if row['실적'] else None, '건', C_GREEN)}</td>"
-            f"<td style='text-align:right'>{fmt(row['누계'], '건') if row['누계'] else '<span style=\"color:#888\">—</span>'}</td>"
-            f"<td style='text-align:right'>{pct_disp}</td>"
-            f"<td style='text-align:right'><span style='background:#EAF3DE;color:#3B6D11;border-radius:3px;padding:0 5px;font-size:10px'>{row['임차+전기']}</span></td>"
-            f"<td style='text-align:right'><span style='background:#FAEEDA;color:#854F0B;border-radius:3px;padding:0 5px;font-size:10px'>{row['전기만']}</span></td>"
-            f"<td style='text-align:right'><span style='background:#F1EFE8;color:#5F5E5A;border-radius:3px;padding:0 5px;font-size:10px'>{row['절감없음']}</span></td>"
-            f"<td style='text-align:right'>{fmt(row['임차료절감'] if row['임차료절감'] else None, '억', C_GREEN)}</td>"
-            f"<td style='text-align:right'>{fmt(row['전기료절감'] if row['전기료절감'] else None, '억', C_AMBER)}</td>"
-            f"<td style='text-align:right'>{fmt(row['투자비'] if row['투자비'] else None, '억', C_RED)}</td>"
-            f"<td style='text-align:right'>{fmt(row['순절감'] if row['순절감'] else None, '억', C_GREEN)}</td>"
-            f"<td>{_status_badge(row['상태'])}</td>"
-            f"</tr>"
-        )
+        # 누계
+        cumul_disp = fmt(cumul, "건") if (cumul and not pd.isna(cumul)) else '<span style="color:#888">—</span>'
+
+        parts = [
+            "<tr>",
+            "<td><b>{}</b></td>".format(mon),
+            '<td style="text-align:right">{}</td>'.format(fmt(actual if actual else None, "건", C_GREEN)),
+            '<td style="text-align:right">{}</td>'.format(cumul_disp),
+            '<td style="text-align:right">{}</td>'.format(pct_disp),
+            '<td style="text-align:right">{}</td>'.format(badge_sav(c_ije, "#EAF3DE", "#3B6D11")),
+            '<td style="text-align:right">{}</td>'.format(badge_sav(c_elec, "#FAEEDA", "#854F0B")),
+            '<td style="text-align:right">{}</td>'.format(badge_sav(c_none, "#F1EFE8", "#5F5E5A")),
+            '<td style="text-align:right">{}</td>'.format(fmt(r_rent if r_rent else None, "억", C_GREEN)),
+            '<td style="text-align:right">{}</td>'.format(fmt(r_elec if r_elec else None, "억", C_AMBER)),
+            '<td style="text-align:right">{}</td>'.format(fmt(r_inv  if r_inv  else None, "억", C_RED)),
+            '<td style="text-align:right">{}</td>'.format(fmt(r_net  if r_net  else None, "억", C_GREEN)),
+            "<td>{}</td>".format(_status_badge(status)),
+            "</tr>",
+        ]
+        rows_html.append("".join(parts))
 
     table_html = f"""
     <table style="width:100%;border-collapse:collapse;font-size:11px">
@@ -618,22 +643,34 @@ with tab_analysis:
 
     rows_biz = []
     for _, row in biz_sum.iterrows():
-        biz = row["사업유형"]
+        biz       = row["사업유형"]
         biz_color = BIZ_COLORS.get(biz, C_GRAY)
-        rows_biz.append(
-            f"<tr>"
-            f"<td><span style='background:{biz_color}22;color:{biz_color};border-radius:4px;padding:1px 7px;font-size:10px;font-weight:500'>{biz}</span></td>"
-            f"<td style='text-align:right;font-weight:500'>{row['건수']}</td>"
-            f"<td style='text-align:right'><span style='background:#EAF3DE;color:#3B6D11;border-radius:3px;padding:0 5px;font-size:10px'>{row['임차+전기']}</span></td>"
-            f"<td style='text-align:right'><span style='background:#FAEEDA;color:#854F0B;border-radius:3px;padding:0 5px;font-size:10px'>{row['전기만']}</span></td>"
-            f"<td style='text-align:right'><span style='background:#F1EFE8;color:#5F5E5A;border-radius:3px;padding:0 5px;font-size:10px'>{row['절감없음']}</span></td>"
-            f"<td style='text-align:right;color:{C_GREEN};font-weight:500'>{row['임차료절감']}억</td>"
-            f"<td style='text-align:right;color:{C_AMBER}'>{row['전기료절감']}억</td>"
-            f"<td style='text-align:right;color:{C_RED}'>{row['투자비'] if row['투자비'] else '—'}억</td>"
-            f"<td style='text-align:right;color:{C_GREEN if row['순절감'] >= 0 else C_RED};font-weight:500'>{row['순절감']}억</td>"
-            f"<td style='text-align:right'>{_bep_str(row['평균BEP'])}</td>"
-            f"</tr>"
-        )
+        cnt       = int(row["건수"])
+        c_ije     = int(row["임차+전기"])
+        c_elec    = int(row["전기만"])
+        c_none    = int(row["절감없음"])
+        r_rent    = row["임차료절감"]
+        r_elec    = row["전기료절감"]
+        r_inv     = row["투자비"]
+        r_net     = row["순절감"]
+        bep_v     = row["평균BEP"]
+        net_color = C_GREEN if r_net >= 0 else C_RED
+
+        parts = [
+            "<tr>",
+            '<td><span style="background:{0}22;color:{0};border-radius:4px;padding:1px 7px;font-size:10px;font-weight:500">{1}</span></td>'.format(biz_color, biz),
+            '<td style="text-align:right;font-weight:500">{}</td>'.format(cnt),
+            '<td style="text-align:right"><span style="background:#EAF3DE;color:#3B6D11;border-radius:3px;padding:0 5px;font-size:10px">{}</span></td>'.format(c_ije),
+            '<td style="text-align:right"><span style="background:#FAEEDA;color:#854F0B;border-radius:3px;padding:0 5px;font-size:10px">{}</span></td>'.format(c_elec),
+            '<td style="text-align:right"><span style="background:#F1EFE8;color:#5F5E5A;border-radius:3px;padding:0 5px;font-size:10px">{}</span></td>'.format(c_none),
+            '<td style="text-align:right;color:{};font-weight:500">{}억</td>'.format(C_GREEN, r_rent),
+            '<td style="text-align:right;color:{}">{}억</td>'.format(C_AMBER, r_elec),
+            '<td style="text-align:right;color:{}">{}억</td>'.format(C_RED, r_inv if r_inv else "—"),
+            '<td style="text-align:right;color:{};font-weight:500">{}억</td>'.format(net_color, r_net),
+            '<td style="text-align:right">{}</td>'.format(_bep_str(bep_v)),
+            "</tr>",
+        ]
+        rows_biz.append("".join(parts))
 
     biz_html = f"""
     <table style="width:100%;border-collapse:collapse;font-size:11px">
@@ -660,8 +697,11 @@ with tab_analysis:
     if not opt_with_inv.empty:
         st.divider()
         avg_bep = opt_with_inv["bep_months"].dropna().mean()
-        st.info(
-            f"📌 **최적화후폐국** — 투자비 발생 {len(opt_with_inv)}건 / 평균 BEP **{avg_bep:.0f}개월**  \n"
-            f"순절감 합계: {round(opt_with_inv['net_savings'].sum()/10000,2)}억원 "
-            f"(투자비 {round(opt_with_inv['inv_total'].sum()/10000,2)}억 차감 후)"
+        inv_sum = round(opt_with_inv["inv_total"].sum() / 10000, 2)
+        net_sum = round(opt_with_inv["net_savings"].sum() / 10000, 2)
+        bep_str = f"{avg_bep:.0f}개월"
+        msg = (
+            f"📌 **최적화후폐국** — 투자비 발생 {len(opt_with_inv)}건 / 평균 BEP **{bep_str}**  \n"
+            f"순절감 합계: {net_sum}억원 (투자비 {inv_sum}억 차감 후)"
         )
+        st.info(msg)
