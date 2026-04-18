@@ -262,7 +262,7 @@ with tab1:
         fig1.update_layout(height=240, barmode="group",
                            margin=dict(l=0,r=8,t=4,b=0),
                            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                           legend=dict(display=False), showlegend=False)
+                           showlegend=False)
         fig1.update_yaxes(title_text="개소", secondary_y=False, gridcolor=GC, tickfont=dict(size=10))
         fig1.update_yaxes(title_text="달성률(%)", secondary_y=True, range=[0,135], tickfont=dict(size=10))
         fig1.update_xaxes(tickfont=dict(size=10))
