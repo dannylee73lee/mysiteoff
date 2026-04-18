@@ -64,7 +64,8 @@ def calc_savings(df: pd.DataFrame, rent_col: str = "_rent_ann", elec_col: str = 
 def monthly_summary(df: pd.DataFrame, goal: int = ANNUAL_GOAL) -> pd.DataFrame:
     rows, cumul = [], 0
     for m in MONTH_ORDER:
-        sub  = df[df["off_month"] == m]
+        off_col = "_off_month" if "_off_month" in df.columns else "off_month"
+        sub  = df[df[off_col] == m]
         cnt  = len(sub)
         cumul += cnt
         rows.append({
@@ -77,7 +78,7 @@ def monthly_summary(df: pd.DataFrame, goal: int = ANNUAL_GOAL) -> pd.DataFrame:
             "절감없음":    int((sub["sav_type"] == "절감없음").sum()),
             "임차료절감":  round(sub["savings_ann"].sum() * 0.85 / 10000, 2),
             "전기료절감":  round(
-                sub[sub["sav_type"].isin(["임차+전기","전기만"])]["elec_ann"].sum() / 10000, 2),
+                sub[sub["sav_type"].isin(["임차+전기","전기만"])].get("_elec_ann", sub["_elec_ann"] if "_elec_ann" in sub.columns else 0).sum() / 10000, 2),
             "투자비":      round(sub["inv_total"].sum() / 10000, 2),
             "순절감":      round(sub["net_savings"].sum() / 10000, 2),
             "상태":        "확정" if m in CONFIRMED else ("검토중" if m in REVIEW else "예정"),
@@ -97,7 +98,7 @@ def biz_type_summary(df: pd.DataFrame) -> pd.DataFrame:
             "전기만":      int((sub["sav_type"]=="전기만").sum()),
             "절감없음":    int((sub["sav_type"]=="절감없음").sum()),
             "임차료절감":  round(sub["savings_ann"].sum()*0.85/10000, 2),
-            "전기료절감":  round(sub["elec_ann"].sum()/10000, 2),
+            "전기료절감":  round((sub["_elec_ann"].sum() if "_elec_ann" in sub.columns else 0)/10000, 2),
             "투자비":      round(sub["inv_total"].sum()/10000, 2),
             "순절감":      round(sub["net_savings"].sum()/10000, 2),
             "평균BEP":     round(avg, 1) if not pd.isna(avg) else None,
@@ -110,7 +111,8 @@ def equipment_summary(df: pd.DataFrame) -> dict:
     RATIOS = [0.40, 0.20, 0.30, 0.10]
     result = {}
     for m in MONTH_ORDER:
-        cnt = len(df[df["off_month"] == m])
+        off_col = "_off_month" if "_off_month" in df.columns else "off_month"
+        cnt = len(df[df[off_col] == m])
         if cnt > 0:
             result[m] = {t: int(cnt*2.5*r) for t,r in zip(TYPES,RATIOS)}
     return result
@@ -119,7 +121,8 @@ def equipment_summary(df: pd.DataFrame) -> dict:
 def voc_summary(df: pd.DataFrame) -> pd.DataFrame:
     rows, remain = [], 0
     for m in ["1월","2월","3월"]:
-        sub    = df[df["off_month"] == m]
+        off_col = "_off_month" if "_off_month" in df.columns else "off_month"
+        sub    = df[df[off_col] == m]
         issued = int((sub.get("voc", pd.Series()).astype(str).str.upper()=="Y").sum())
         done   = int(issued * 0.75)
         remain += (issued - done)

@@ -233,8 +233,8 @@ def get_data(honbu, fhash_main, fhash_rent):
     extra   = load_extra()
     df      = apply_extra(df_rent, extra)
     df_pool = df[
-        (df.get("site_err", pd.Series("정상", index=df.index)) == "정상") &
-        (df.get("pool_yn",  pd.Series("반영",  index=df.index)) == "반영")
+        (df.get("_site_err", pd.Series("정상", index=df.index)) == "정상") &
+        (df.get("_pool_yn",  pd.Series("반영",  index=df.index)) == "반영")
     ].copy()
     return calc_savings(df_pool)
 
@@ -244,12 +244,12 @@ with st.spinner("{}  데이터 로딩 중…".format(sel_honbu)):
         file_hash(MAIN_FILES.get(sel_honbu, MAIN_FILES[DEFAULT_HONBU])),
         file_hash(RENT_FILE),
     )
-df_conf = df_pool[df_pool["off_month"].isin(CONFIRMED)]
+df_conf = df_pool[df_pool["_off_month"].isin(CONFIRMED)]
 
 # ── KPI 계산 ─────────────────────────────────────────────────
 total_conf = len(df_conf)
 rent_conf  = round(df_conf["savings_ann"].sum() * 0.85 / 10000, 1)
-elec_conf  = round(df_conf["elec_ann"].sum() / 10000, 1)
+elec_conf  = round(df_conf["_elec_ann"].sum() / 10000, 1)
 pct_conf   = round(total_conf / goal * 100, 1)
 voc_df     = voc_summary(df_pool)
 voc_issued = int(voc_df["발생"].sum())          if len(voc_df) else 0
@@ -343,9 +343,9 @@ with tab1:
         conf_m = ["1월","2월","3월"]
         rent_m, elec_m, cumul_m, run = [], [], [], 0.0
         for m in conf_m:
-            s = df_pool[df_pool["off_month"]==m]
+            s = df_pool[df_pool["_off_month"]==m]
             r = round(s["savings_ann"].sum()*0.85/10000, 2)
-            e = round(s["elec_ann"].sum()/10000, 2)
+            e = round(s["_elec_ann"].sum()/10000, 2)
             run = round(run+r+e, 2)
             rent_m.append(r); elec_m.append(e); cumul_m.append(run)
 
@@ -589,12 +589,12 @@ with tab3:
         unsafe_allow_html=True)
     tile_close()
 
-    opt=df_conf[df_conf["biz_type"]=="최적화후폐국"]
-    opt_inv=opt[opt["inv_total"]>0]
+    opt=df_conf[df_conf["_biz_type"]=="최적화후폐국"]
+    opt_inv=opt[opt["_inv_total"]>0]
     if not opt_inv.empty:
         avg_bep=opt_inv["bep_months"].dropna().mean()
         bep_s="{}개월".format(int(avg_bep)) if not pd.isna(avg_bep) else "—"
         st.info("📌 **최적화후폐국** — 투자비 발생 {}건 · 평균 BEP **{}** · 순절감 {}억원 (투자비 {}억 차감 후)".format(
             len(opt_inv), bep_s,
             round(opt_inv["net_savings"].sum()/10000,2),
-            round(opt_inv["inv_total"].sum()/10000,2)))
+            round(opt_inv["_inv_total"].sum()/10000,2)))
