@@ -317,7 +317,7 @@ def update_plotly_layout(fig):
         gridcolor=C["grid"],
         tickfont=dict(size=10, color="#64748B"),
         zeroline=False
-    )2
+    )
 # ════════ TAB 1 ═══════════════════════════════════════════════
 with tab1:
     # (기존 차트 카드 구성 함수 유지하되 디자인 미세 조정)
