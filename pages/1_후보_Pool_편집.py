@@ -16,6 +16,26 @@ from utils.data_loader import (
 from utils.calc import calc_savings, CONFIRMED
 
 st.set_page_config(page_title="후보 Pool 편집", layout="wide")
+
+# ── 사이드바 네비게이션 ──────────────────────────────────────
+with st.sidebar:
+    st.markdown("### 📡 폐국 관리 시스템")
+    st.markdown("**04.중부 본부**")
+    st.divider()
+    st.markdown("**페이지**")
+    st.markdown(
+        '<div style="padding:5px 10px;margin:2px 0;font-size:12px">'
+        '<a href="/" target="_self" '
+        'style="text-decoration:none;color:var(--text-color)">📊 메인 현황</a></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div style="background:var(--secondary-background-color);border-radius:6px;'
+        'padding:5px 10px;margin:2px 0;font-size:12px;font-weight:500">'
+        '📋 후보 Pool 편집</div>',
+        unsafe_allow_html=True,
+    )
+
 st.markdown("""
 <style>
 .block-container{padding-top:1rem}
