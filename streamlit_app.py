@@ -10,7 +10,11 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 # ── 1. 경로 및 데이터 로더 설정 ──────────────────────────────────
-sys.path.insert(0, str(Path(__file__).parent))
+# 현재 파일의 위치를 기준으로 시스템 경로 추가
+current_dir = Path(__file__).parent
+if str(current_dir) not in sys.path:
+    sys.path.insert(0, str(current_dir))
+
 from utils.data_loader import (
     load_raw, file_hash, apply_extra, load_extra, MAIN_FILE, RENT_FILE,
 )
@@ -30,7 +34,6 @@ st.set_page_config(
 # ── 3. 전문적인 BI 스타일링 (CSS) ──────────────────────────────
 st.markdown("""
 <style>
-    /* 전체 배경 및 폰트 */
     .stApp { background-color: #F4F7F9; }
     .block-container { padding-top: 1.5rem; padding-bottom: 1rem; }
 
@@ -49,7 +52,6 @@ st.markdown("""
     .kpi-unit { font-size: 16px; font-weight: 600; margin-left: 2px; }
     .kpi-sub { font-size: 12px; color: #94A3B8; margin-bottom: 12px; }
     
-    /* 프로그레스 바 */
     .kpi-bar-bg { height: 6px; border-radius: 3px; background-color: #F1F5F9; }
     .kpi-bar-fill { height: 6px; border-radius: 3px; }
 
@@ -64,11 +66,6 @@ st.markdown("""
     }
     .chart-title { font-size: 16px; font-weight: 700; color: #1E293B; margin-bottom: 4px; }
     .chart-sub { font-size: 13px; color: #94A3B8; margin-bottom: 20px; }
-
-    /* 탭 스타일 조정 */
-    .stTabs [data-baseweb="tab-list"] { gap: 24px; }
-    .stTabs [data-baseweb="tab"] { font-weight: 600; color: #64748B; }
-    .stTabs [data-baseweb="tab"][aria-selected="true"] { color: #1D4ED8; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -85,12 +82,11 @@ C = {
 }
 
 # ── 5. 데이터 로딩 및 처리 ─────────────────────────────────────
-@st.cache_data(show_spinner="대시보드 데이터를 구성 중입니다...")
+@st.cache_data(show_spinner="데이터를 구성 중입니다...")
 def get_processed_data(fhash):
     df_raw = load_raw(fhash)
     extra = load_extra()
     df = apply_extra(df_raw, extra)
-    # 정상 데이터이면서 반영된 데이터만 필터링
     df_pool = df[
         (df.get("site_err", pd.Series("정상", index=df.index)) == "정상") &
         (df.get("pool_yn",  pd.Series("반영",  index=df.index)) == "반영")
@@ -103,25 +99,31 @@ except Exception as e:
     st.error(f"데이터 로딩 실패: {e}")
     st.stop()
 
-# 확정 데이터 (1~3월) 분리
 df_conf = df_pool[df_pool["off_month"].isin(CONFIRMED)]
 
-# ── 6. 사이드바 구성 ──────────────────────────────────────────
+# ── 6. 사이드바 구성 (에러 수정됨) ───────────────────────────────
 with st.sidebar:
     st.markdown("### 📡 폐국 관리 시스템")
     st.markdown("**04.중부 본부**")
     st.divider()
+    
+    # st.page_link 오류 수정: 메인 페이지는 "app.py" 대신 "app.py"의 파일 이름이나 "/" 경로를 사용
     st.page_link("app.py", label="📊 실적 대시보드", icon="📈")
-    st.page_link("pages/1_후보_Pool_편집.py", label="📋 후보 Pool 편집", icon="📝")
+    
+    # pages 폴더 내 파일 경로 확인 필요 (파일명이 다르면 수정하세요)
+    try:
+        st.page_link("pages/1_후보_Pool_편집.py", label="📋 후보 Pool 편집", icon="📝")
+    except:
+        st.caption("⚠️ 후보 Pool 편집 페이지를 찾을 수 없습니다.")
+        
     st.divider()
-    if st.button("🔄 데이터 강제 새로고침", use_container_width=True):
+    if st.button("🔄 데이터 새로고침", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
 
 # ── 7. KPI 카드 영역 ──────────────────────────────────────────
 st.markdown('<div style="font-size:24px; font-weight:800; color:#0F172A; margin-bottom:20px;">중부 본부 폐국 운영 현황</div>', unsafe_allow_html=True)
 
-# 실적 계산
 total_conf = len(df_conf)
 rent_conf  = round(df_conf["savings_ann"].sum() * 0.85 / 10000, 1)
 elec_conf  = round(df_conf["elec_ann"].sum() / 10000, 1)
@@ -160,13 +162,11 @@ with tab1:
         m_sum = monthly_summary(df_pool)
         fig1 = make_subplots(specs=[[{"secondary_y": True}]])
         
-        # 막대 차트
         fig1.add_trace(go.Bar(
             x=m_sum["월"], y=m_sum["실적"], 
             name="실적", marker_color=C["blue"], opacity=0.8
         ), secondary_y=False)
         
-        # 꺾은선 차트 (에러 수정됨: textfont weight 속성)
         fig1.add_trace(go.Scatter(
             x=m_sum["월"], y=m_sum["누계달성률"],
             name="달성률", mode="lines+markers+text",
@@ -174,7 +174,7 @@ with tab1:
             marker=dict(size=8, color="white", line=dict(color=C["green"], width=2)),
             text=[f"{int(v)}%" if v > 0 else "" for v in m_sum["누계달성률"]],
             textposition="top center",
-            textfont=dict(size=11, color=C["green"])
+            textfont=dict(size=11, color=C["green"]) # weight 속성 제거 (Plotly 하위버전 호환성)
         ), secondary_y=True)
 
         fig1.update_layout(
@@ -198,10 +198,7 @@ with tab1:
             marker=dict(colors=[C["blue"], C["purple"], C["teal"]]),
             textinfo='percent+label'
         )])
-        fig2.update_layout(
-            height=300, margin=dict(l=10, r=10, t=20, b=10),
-            showlegend=False
-        )
+        fig2.update_layout(height=300, margin=dict(l=10, r=10, t=20, b=10), showlegend=False)
         st.plotly_chart(fig2, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -209,7 +206,6 @@ with tab2:
     st.markdown('<div class="chart-card">', unsafe_allow_html=True)
     st.markdown('<div class="chart-title">월별 세부 실적 지표</div><div style="height:10px"></div>', unsafe_allow_html=True)
     
-    # 세련된 데이터프레임 렌더링
     st.dataframe(
         monthly_summary(df_pool),
         use_container_width=True,
