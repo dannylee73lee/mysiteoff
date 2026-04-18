@@ -1,6 +1,6 @@
 """
 streamlit_app.py  —  폐국 관리 시스템 · 메인 현황
-실행: streamlit run streamlit_app.py
+최종 업데이트: 2026-04-18 (Streamlit 최신 문법 반영)
 """
 import sys
 from pathlib import Path
@@ -70,16 +70,16 @@ try:
     df_pool = get_processed_data(file_hash(MAIN_FILE))
     df_conf = df_pool[df_pool["off_month"].isin(CONFIRMED)]
 except Exception as e:
-    st.error(f"데이터 로딩 실패: utils 폴더와 데이터 파일을 확인하세요.")
+    st.error("데이터 로딩 실패: utils 폴더와 데이터 파일을 확인하세요.")
     st.stop()
 
-# ── 5. 사이드바 (파일명 기반 네비게이션 수정) ─────────────────────
+# ── 5. 사이드바 (최신 width 문법 반영) ─────────────────────
 with st.sidebar:
     st.markdown("### 📡 폐국 관리 시스템")
     st.caption("04.중부 본부")
     st.divider()
     
-    # 현재 파일명이 streamlit_app.py이므로 이를 명시적으로 호출하거나 텍스트로 처리
+    # 메인 페이지 링크
     st.page_link("streamlit_app.py", label="📊 실적 대시보드", icon="📈")
     
     pool_page = "pages/1_후보_Pool_편집.py"
@@ -87,7 +87,8 @@ with st.sidebar:
         st.page_link(pool_page, label="📋 후보 Pool 편집", icon="📝")
         
     st.divider()
-    if st.button("🔄 데이터 새로고침", use_container_width=True):
+    # use_container_width=True 대신 width='stretch' 사용
+    if st.button("🔄 데이터 새로고침", width="stretch"):
         st.cache_data.clear()
         st.rerun()
 
@@ -129,7 +130,8 @@ with tab1:
         fig1.add_trace(go.Bar(x=m_sum["월"], y=m_sum["실적"], name="실적", marker_color=C["blue"]), secondary_y=False)
         fig1.add_trace(go.Scatter(x=m_sum["월"], y=m_sum["누계달성률"], name="달성률", line=dict(color=C["green"], width=3)), secondary_y=True)
         fig1.update_layout(height=300, margin=dict(l=0, r=0, t=20, b=0), showlegend=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig1, use_container_width=True)
+        # plotly_chart는 기존 use_container_width 방식을 유지하거나 설정을 따름
+        st.plotly_chart(fig1, width="stretch")
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col_r:
@@ -137,14 +139,15 @@ with tab1:
         bs = biz_type_summary(df_conf)
         fig2 = go.Figure(data=[go.Pie(labels=bs["사업유형"], values=bs["건수"], hole=.4, marker=dict(colors=[C["blue"], C["purple"], C["teal"]]))])
         fig2.update_layout(height=300, margin=dict(l=0, r=0, t=20, b=0))
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, width="stretch")
         st.markdown('</div>', unsafe_allow_html=True)
 
 with tab2:
     st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+    # 데이터프레임 최신 width 문법 반영
     st.dataframe(
         m_sum,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config={
             "누계달성률": st.column_config.ProgressColumn("달성률(%)", min_value=0, max_value=100, format="%d%%"),
