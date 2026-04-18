@@ -1,53 +1,73 @@
 """
 data_loader.py
 ==============
-실제 원시 데이터 포맷 기반 (샘플.xlsx 확인 완료)
+원시 데이터 포맷 절대 유지.
+원시 파일을 있는 그대로 읽고, 편집 컬럼만 오른쪽 끝에 추가.
 
-컬럼 구조:
-  A : id
-  B : [자료수합용] 2nd 순번
-  C : [자료수합용] 최초 오름차순 순번
-  D : [Vlookup 순번]
-  E : [ERP]통합시설코드
-  F : 통시중복
-  G : [ERP] 국소명
-  H : [ERP] 사업망 구분
-  I : [ERP] 운용 상태
-  J : [ERP] 본부
-  K : [ERP] 공대, Sub구분 (통시구분)
-  L : [ERP] 공용대표코드
-  M : [ERP] Sitekey         ← 주 키
-  N : [ERP] 임차물건번호
-  O : [ERP 전기물건] 전기료내역마스터
-  P : [통합Eng DB] 연_임차_료   (억원 단위)
-  Q : [통합Eng DB] 연_전기_료   (억원 단위)
-  R : [ERP] 상호정산비용
-  S : (비어있음)
-  T : 후보\nPool
-  U : 본부
-  V : 사이트오류\n제외대상
-  W : 후보Pool\n반영여부
-  X : 후보Pool\n미반영사유
-  Y : 사업유형
-  Z : Off 월                    ← "1월_Off" 형식
-  AA: 폐국 월
-  AB: VoC
-  AC: 1월 Off 367
-  AD: (최종)\n유형분류
-  AE: (비어있음)
-  AF: (2월대상)연환산임차료
-  AG: 임차번호\n(① 통시 ② 임차)
-  AH: 연환산임차료\n(통시+임차+수기)  ← 원 단위, 실제 임차료 기준값
-  AI: (작업중) 연환산임차료_통시
-  AJ: (작업중) 연환산임차료_임차번호
-  AK~BH: 분석/기타 컬럼
+원시 파일 컬럼 (샘플.xlsx 기준, 60열):
+  A  : id
+  B  : [자료수합용] 2nd 순번(본부별 분리용)
+  C  : [자료수합용] 최초 오름차순 순번
+  D  : [Vlookup 순번]
+  E  : [ERP]통합시설코드
+  F  : 통시중복
+  G  : [ERP] 국소명
+  H  : [ERP] 사업망 구분
+  I  : [ERP] 운용 상태
+  J  : [ERP] 본부
+  K  : [ERP] 공대, Sub구분
+  L  : [ERP] 공용대표코드
+  M  : [ERP] Sitekey          ← 주 키
+  N  : [ERP] 임차물건번호
+  O  : [ERP 전기물건] 전기료내역마스터
+  P  : [통합Eng DB] 연_임차_료  (백만원 단위)
+  Q  : [통합Eng DB] 연_전기_료  (백만원 단위)
+  R  : [ERP] 상호정산비용
+  S  : (빈 열)
+  T  : 후보Pool
+  U  : 본부
+  V  : 사이트오류 제외대상
+  W  : 후보Pool 반영여부
+  X  : 후보Pool 미반영사유
+  Y  : 사업유형
+  Z  : Off 월                   ("1월_Off" 형식)
+  AA : 폐국 월
+  AB : VoC
+  AC : 1월 Off 367
+  AD : (최종) 유형분류
+  AE : (빈 열)
+  AF : (2월대상)연환산임차료
+  AG : 임차번호(① 통시 ② 임차)
+  AH : 연환산임차료(통시+임차+수기)  (원 단위, 실제 임차료 기준)
+  AI : (작업중) 연환산임차료_통시
+  AJ : (작업중) 연환산임차료_임차번호
+  AK : RSRP Gp(S-N)
+  AL : Neigh/Serv 비율
+  AM : Cov. Outage Gap(S-N)
+  AN : 상관계수
+  AO : 반영내 판단 가능 인빌딩
+  AP : LTE PCI 점유율
+  AQ : 5G PCI 점유율
+  AR~AT : (빈 열)
+  AU : 시범클러스터(O,X)
+  AV : 시범클러스터 미반영사유
+  AW : 사업유형
+  AX : 최경순
+  AY : AFE반영대상 - 우선순위(이설후폐국)
+  AZ : 통시
+  BA : 활용구분
+  BB : 시도
+  BC : 시군구
+  BD : 읍면동
+  BE : 세부주소
+  BF : 주소
+  BG : 특이사항
+  BH : 사이트증분 샘플 철거
 
-임차·전기 데이터 조회 우선순위:
-  1순위: DB 조회 (Athena 등 — query_rent_from_db 구현 시 활성화)
-  2순위: data_site/임차_전기DB.xlsx  (Sitekey 기준 조인)
-  3순위: 원시파일 AH열(연환산임차료) + Q열(연전기료) 직접 참조
-
-Off 월 파싱: "1월_Off" → "1월"
+임차·전기 조회 우선순위:
+  1순위: DB 조회 (Athena 등 — query_rent_from_db 구현 시)
+  2순위: 임차_전기DB.xlsx  (Sitekey 기준 조인)
+  3순위: 원시파일 AH열(연환산임차료, 원단위) + Q열(연전기료, 백만원단위) 직접 참조
 """
 
 import hashlib, json
@@ -76,51 +96,35 @@ HONBU_ORDER = ["수도권", "04.중부", "동부", "서부"]
 MONTH_ORDER = [f"{i}월" for i in range(1, 7)]
 CONFIRMED   = {"1월", "2월", "3월"}
 REVIEW      = {"4월"}
-
 SUBMIT_MONTHS = ["4월", "5월", "6월"]
 
-# ── 원시 데이터 컬럼 매핑 (실제 헤더명 → 내부 키) ────────────
-# 포맷 절대 유지: 원시 파일을 변형하지 않고 읽기만 함
-COL_MAP = {
-    # 기본 식별
-    "id":            "id",
-    "facility_code": "[ERP]통합시설코드",      # E열
-    "sitekey":       "[ERP] Sitekey",           # M열 (주 키)
-    "site_name":     "[ERP] 국소명",            # G열
-    "network":       "[ERP] 사업망 구분",       # H열
-    "status":        "[ERP] 운용 상태",         # I열
-    "honbu":         "[ERP] 본부",              # J열
-    "tosi":          "[ERP] 공대, Sub구분",     # K열 (통시구분)
-    # 임차·전기 물건번호 (N, O열 — 원시파일에 이미 존재)
-    "rent_no":       "[ERP] 임차물건번호",      # N열
-    "elec_no":       "[ERP 전기물건] 전기료내역마스터",  # O열
-    # P, Q열: 억원 단위 (참고용)
-    "rent_ann_p":    "[통합Eng DB] 연_임차_료", # P열 (억원)
-    "elec_ann_q":    "[통합Eng DB] 연_전기_료", # Q열 (억원)
-    # 후보 Pool 관련
-    "pool_type":     "후보\nPool",              # T열
-    "site_err":      "사이트오류\n제외대상",    # V열
-    "pool_yn":       "후보Pool\n반영여부",      # W열
-    "pool_reason":   "후보Pool\n미반영사유",    # X열
-    "biz_type":      "사업유형",                # Y열
-    "off_month_raw": "Off 월",                  # Z열 ("1월_Off" 형식)
-    "close_month":   "폐국 월",                 # AA열
-    "voc":           "VoC",                     # AB열
-    "type_cls":      "(최종)\n유형분류",        # AD열
-    # AH열: 연환산임차료(원 단위) — 3순위 fallback 기준
-    "rent_ann_ah":   "연환산임차료\n(통시+임차+수기)",  # AH열
+# ── 원시 파일에서 Sitekey·Pool 판단에 필요한 컬럼 ──────────
+# 로직 처리용 내부 키 → 원시 헤더명 매핑 (최소한만)
+KEY_COLS = {
+    "sitekey":    "[ERP] Sitekey",
+    "honbu":      "[ERP] 본부",
+    "site_err":   "사이트오류\n제외대상",
+    "pool_yn":    "후보Pool\n반영여부",
+    "biz_type":   "사업유형",          # Y열
+    "tosi":       "[ERP] 공대, Sub구분",
+    "off_month_raw": "Off 월",
+    "rent_ann_ah":   "연환산임차료\n(통시+임차+수기)",   # AH열 (원 단위)
+    "rent_ann_p":    "[통합Eng DB] 연_임차_료",           # P열 (백만원)
+    "elec_ann_q":    "[통합Eng DB] 연_전기_료",           # Q열 (백만원)
+    "rent_no":       "[ERP] 임차물건번호",
+    "elec_no":       "[ERP 전기물건] 전기료내역마스터",
 }
 
-# 임차·전기 DB 컬럼 매핑 (2순위)
+# 임차_전기DB.xlsx 컬럼 매핑 (2순위)
 RENT_COL_MAP = {
     "sitekey":  "[ERP] Sitekey",
     "rent_no":  "[ERP] 임차물건번호",
     "elec_no":  "[ERP 전기물건] 전기료내역마스터",
     "rent_ann": "[통합Eng DB] 연_임차_료",
-    "elec_ann": " [통합Eng DB] 연_전기_료",
+    "elec_ann": "[통합Eng DB] 연_전기_료",
 }
 
-# 사용자 편집 컬럼 (원시 파일 오른쪽 끝에 추가)
+# 사용자 편집 추가 컬럼 (원시 데이터 오른쪽 끝에 추가)
 EXTRA_COLS = {
     "sav_type":      "절감유형",
     "inv_bun":       "투자비_분기",
@@ -133,21 +137,14 @@ EXTRA_COLS = {
 EDITABLE_EXTRA = set(EXTRA_COLS.keys())
 
 
-# ── Off 월 파싱 ──────────────────────────────────────────────
 def parse_off_month(raw) -> str:
-    """
-    "1월_Off", "3월_Off" → "1월", "3월"
-    이미 "1월" 형식이면 그대로 반환
-    """
+    """'1월_Off' → '1월'"""
     if raw is None:
         return ""
     s = str(raw).strip()
-    if "_Off" in s:
-        return s.split("_")[0]   # "1월_Off" → "1월"
-    return s
+    return s.split("_")[0] if "_Off" in s else s
 
 
-# ── 파일 해시 ────────────────────────────────────────────────
 def file_hash(path: Path) -> str:
     if not path.exists():
         return ""
@@ -158,16 +155,85 @@ def file_hash(path: Path) -> str:
     return h.hexdigest()
 
 
+# ── 원시 데이터 로드 — 포맷 절대 유지 ───────────────────────
+@st.cache_data(show_spinner=False)
+def load_raw(fhash: str, honbu: str = DEFAULT_HONBU) -> pd.DataFrame:
+    """
+    원시 Excel을 있는 그대로 읽음.
+    - 헤더(1행) 그대로 컬럼명으로 사용
+    - 빈 열(S, AE, AR~AT) 포함 전체 컬럼 로드
+    - 데이터 타입 변환 최소화 (표시 전용)
+    - 로직 처리에 필요한 컬럼만 별도 파생 (_sitekey, _off_month 등)
+    """
+    main_path = MAIN_FILES.get(honbu, MAIN_FILE)
+    if not main_path.exists():
+        return _make_sample(honbu)
+
+    try:
+        # 헤더 1행, 전체 컬럼 그대로 읽기
+        df = pd.read_excel(
+            main_path,
+            engine  = "openpyxl",
+            header  = 0,       # 1행이 헤더
+            dtype   = str,     # 모든 값 문자열로 유지 (표시용)
+        )
+    except Exception as e:
+        st.error(f"원시 데이터 로딩 오류: {e}")
+        return _make_sample(honbu)
+
+    # Sitekey 컬럼 확인
+    sitekey_col = "[ERP] Sitekey"
+    if sitekey_col not in df.columns:
+        st.warning(f"'{sitekey_col}' 컬럼을 찾을 수 없습니다. 헤더를 확인하세요.")
+        return _make_sample(honbu)
+
+    # Sitekey 중복 제거
+    df = df.drop_duplicates(subset=sitekey_col, keep="first")
+
+    # 로직 처리용 파생 컬럼 (언더스코어 prefix로 원본과 구분)
+    df["_sitekey"]  = df[sitekey_col].fillna("")
+    df["_honbu"]    = df.get("[ERP] 본부", "").fillna("")
+    df["_site_err"] = df.get("사이트오류\n제외대상", "정상").fillna("정상")
+    df["_pool_yn"]  = df.get("후보Pool\n반영여부", "반영").fillna("반영")
+    df["_biz_type"] = df.get("사업유형", "").fillna("")
+    df["_tosi"]     = df.get("[ERP] 공대, Sub구분", "").fillna("")
+
+    # Off 월 파싱 ("1월_Off" → "1월")
+    off_raw = df.get("Off 월", pd.Series("", index=df.index))
+    df["_off_month"] = off_raw.apply(parse_off_month)
+
+    # 임차·전기 금액 (만원 단위 파생 — 계산용)
+    ah_col = "연환산임차료\n(통시+임차+수기)"
+    p_col  = "[통합Eng DB] 연_임차_료"
+    q_col  = "[통합Eng DB] 연_전기_료"
+
+    if ah_col in df.columns:
+        # AH열: 원 단위 → 만원 (÷10,000), '없음' 등 문자열은 0
+        df["_rent_ann"] = pd.to_numeric(
+            df[ah_col].replace({"없음": None, "": None}), errors="coerce"
+        ).fillna(0) / 10000
+    elif p_col in df.columns:
+        # P열: 백만원 단위 → 만원 (×100)
+        df["_rent_ann"] = pd.to_numeric(df[p_col], errors="coerce").fillna(0) * 100
+    else:
+        df["_rent_ann"] = 0.0
+
+    if q_col in df.columns:
+        # Q열: 백만원 단위 → 만원 (×100)
+        df["_elec_ann"] = pd.to_numeric(df[q_col], errors="coerce").fillna(0) * 100
+    else:
+        df["_elec_ann"] = 0.0
+
+    return df
+
+
 # ── 1순위: DB 조회 ────────────────────────────────────────────
 def query_rent_from_db(sitekeys: list) -> pd.DataFrame:
     """
-    Athena/DB 연결 구현 시 이 함수를 수정하세요.
+    Athena/DB 구현 시 이 함수를 수정하세요.
     반환: DataFrame(sitekey, rent_ann, elec_ann) — 없으면 빈 DataFrame
     """
     try:
-        # 예시: Athena 쿼리
-        # import boto3
-        # ...
         return pd.DataFrame()   # 미구현 → 2순위 fallback
     except Exception:
         return pd.DataFrame()
@@ -183,10 +249,6 @@ def load_rent_excel(fhash: str) -> pd.DataFrame:
                        usecols=lambda c: c in target, dtype=str)
     inv = {v: k for k, v in RENT_COL_MAP.items() if v in df.columns}
     df  = df.rename(columns=inv)
-    # Q열 앞 공백 대응
-    for alt in (" [통합Eng DB] 연_전기_료", "[통합Eng DB] 연_전기_료"):
-        if alt in df.columns and "elec_ann" not in df.columns:
-            df = df.rename(columns={alt: "elec_ann"})
     for c in ("rent_ann", "elec_ann"):
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
@@ -195,104 +257,35 @@ def load_rent_excel(fhash: str) -> pd.DataFrame:
     return df
 
 
-# ── 임차·전기 통합 조회 (3단계 Fallback) ─────────────────────
-def get_rent_data(df_raw: pd.DataFrame) -> pd.DataFrame:
+# ── 임차·전기 만원 금액 보강 (파생 컬럼 _rent_ann, _elec_ann 갱신) ──
+def enrich_rent(df: pd.DataFrame) -> pd.DataFrame:
     """
-    우선순위:
-      1순위 DB → 2순위 엑셀 → 3순위 원시파일 AH열(임차) + Q열(전기)
+    _rent_ann, _elec_ann 파생 컬럼을 우선순위에 따라 채움.
+    원시 DataFrame의 나머지 컬럼은 절대 변경하지 않음.
     """
-    sitekeys = df_raw["sitekey"].tolist() if "sitekey" in df_raw.columns else []
+    df = df.copy()
+    sitekeys = df["_sitekey"].tolist()
 
     # 1순위: DB
-    df_db = query_rent_from_db(sitekeys)
-    if isinstance(df_db, pd.DataFrame) and not df_db.empty and "sitekey" in df_db.columns:
-        need = [c for c in ("rent_ann","elec_ann") if c in df_db.columns]
-        if need:
-            df = df_raw.merge(df_db[["sitekey"]+need].drop_duplicates("sitekey"),
-                              on="sitekey", how="left")
-            for c in ("rent_ann","elec_ann"):
-                df[c] = pd.to_numeric(df.get(c,0), errors="coerce").fillna(0)
-            return df
-
-    # 2순위: 임차_전기DB.xlsx
-    df_excel = load_rent_excel(file_hash(RENT_FILE))
-    if not df_excel.empty and "sitekey" in df_excel.columns:
-        need = [c for c in ("rent_ann","elec_ann","rent_no","elec_no") if c in df_excel.columns]
-        df = df_raw.merge(df_excel[["sitekey"]+need].drop_duplicates("sitekey"),
-                          on="sitekey", how="left",
-                          suffixes=("_raw",""))
-        for c in ("rent_ann","elec_ann"):
-            df[c] = pd.to_numeric(df.get(c,0), errors="coerce").fillna(0)
-        for c in ("rent_no","elec_no"):
-            if c not in df.columns and c+"_raw" in df.columns:
-                df[c] = df[c+"_raw"]
+    db = query_rent_from_db(sitekeys)
+    if not db.empty and "sitekey" in db.columns:
+        db = db.set_index("sitekey")
+        if "rent_ann" in db.columns:
+            df["_rent_ann"] = df["_sitekey"].map(db["rent_ann"]).fillna(df["_rent_ann"])
+        if "elec_ann" in db.columns:
+            df["_elec_ann"] = df["_sitekey"].map(db["elec_ann"]).fillna(df["_elec_ann"])
         return df
 
-    # 3순위: 원시파일 AH열(연환산임차료, 원 단위) + Q열(전기, 억원)
-    df_raw = df_raw.copy()
-    if "rent_ann_ah" in df_raw.columns:
-        # AH열: 원 단위 → 만원 단위
-        df_raw["rent_ann"] = pd.to_numeric(df_raw["rent_ann_ah"], errors="coerce").fillna(0) / 10000
-    elif "rent_ann_p" in df_raw.columns:
-        # P열: 억원 단위 → 만원 단위
-        df_raw["rent_ann"] = pd.to_numeric(df_raw["rent_ann_p"], errors="coerce").fillna(0) * 100
-    else:
-        df_raw["rent_ann"] = 0.0
+    # 2순위: 임차_전기DB.xlsx
+    excel = load_rent_excel(file_hash(RENT_FILE))
+    if not excel.empty and "sitekey" in excel.columns:
+        excel = excel.set_index("sitekey")
+        if "rent_ann" in excel.columns:
+            df["_rent_ann"] = df["_sitekey"].map(excel["rent_ann"]).fillna(df["_rent_ann"])
+        if "elec_ann" in excel.columns:
+            df["_elec_ann"] = df["_sitekey"].map(excel["elec_ann"]).fillna(df["_elec_ann"])
 
-    if "elec_ann_q" in df_raw.columns:
-        # Q열: 억원 단위 → 만원 단위
-        df_raw["elec_ann"] = pd.to_numeric(df_raw["elec_ann_q"], errors="coerce").fillna(0) * 100
-    else:
-        df_raw["elec_ann"] = 0.0
-
-    return df_raw
-
-
-# ── 원시 데이터 로드 ─────────────────────────────────────────
-@st.cache_data(show_spinner=False)
-def load_raw(fhash: str, honbu: str = DEFAULT_HONBU) -> pd.DataFrame:
-    """
-    원시 Excel 로드.
-    - 포맷 절대 유지 (파일 수정 없음)
-    - 필요한 열만 읽기 (성능 최적화)
-    - Off 월 파싱: "1월_Off" → "1월"
-    """
-    main_path = MAIN_FILES.get(honbu, MAIN_FILE)
-    if not main_path.exists():
-        return _make_sample(honbu)
-
-    # 필요한 헤더 목록 (빈 열, 분석 전용 열 제외)
-    target = {v for v in COL_MAP.values() if v is not None}
-
-    try:
-        df = pd.read_excel(
-            main_path,
-            engine   = "openpyxl",
-            header   = 0,          # 1행이 헤더
-            usecols  = lambda c: c in target,
-            dtype    = str,
-        )
-    except Exception as e:
-        st.error(f"원시 데이터 로딩 오류: {e}")
-        return _make_sample(honbu)
-
-    # 내부 키로 rename
-    inv = {v: k for k, v in COL_MAP.items() if v in df.columns}
-    df  = df.rename(columns=inv)
-
-    # Sitekey 기준 중복 제거
-    if "sitekey" in df.columns:
-        df = df.drop_duplicates(subset="sitekey", keep="first")
-    else:
-        st.warning("'[ERP] Sitekey' 컬럼을 찾을 수 없습니다. 헤더를 확인하세요.")
-        return _make_sample(honbu)
-
-    # Off 월 파싱: "1월_Off" → "1월"
-    if "off_month_raw" in df.columns:
-        df["off_month"] = df["off_month_raw"].apply(parse_off_month)
-    else:
-        df["off_month"] = ""
-
+    # 3순위: 원시 파일 AH/P/Q열 → load_raw에서 이미 처리됨
     return df
 
 
@@ -311,16 +304,20 @@ def save_extra(data: dict):
 
 
 def apply_extra(df: pd.DataFrame, extra: dict) -> pd.DataFrame:
-    """원시 DataFrame 오른쪽 끝에 추가 편집 컬럼 병합."""
+    """
+    원시 DataFrame 오른쪽 끝에 편집 컬럼 추가.
+    원시 컬럼은 절대 변경하지 않음.
+    """
     df = df.copy()
-    all_extra = {
-        **EXTRA_COLS,
-        **{"submit_{}".format(m): "{}제출".format(m) for m in SUBMIT_MONTHS},
-    }
-    for col_key in all_extra:
-        if col_key not in df.columns:
-            df[col_key] = df["sitekey"].map(
-                lambda sk, c=col_key: extra.get(sk, {}).get(c, "")
+    for col_key, col_label in EXTRA_COLS.items():
+        # submit_* 컬럼은 bool로
+        val_default = False if col_key.startswith("submit_") else ""
+        df[col_key] = df["_sitekey"].map(
+            lambda sk, c=col_key, d=val_default: extra.get(sk, {}).get(c, d)
+        )
+        if col_key.startswith("submit_"):
+            df[col_key] = df[col_key].apply(
+                lambda v: True if str(v).lower() in ("true","1","y","제출") else False
             )
     for c in ("inv_bun", "inv_bae", "savings_fix"):
         if c in df.columns:
@@ -329,7 +326,7 @@ def apply_extra(df: pd.DataFrame, extra: dict) -> pd.DataFrame:
 
 
 # ── 변경 이력 ────────────────────────────────────────────────
-def log_change(sitekey: str, col: str, old, new, user: str = "담당자"):
+def log_change(sitekey, col, old, new, user="담당자"):
     logs = []
     if LOG_FILE.exists():
         with open(LOG_FILE, encoding="utf-8") as f:
@@ -354,99 +351,260 @@ def load_log() -> pd.DataFrame:
 # ── 샘플 데이터 (실제 파일 없을 때) ─────────────────────────
 def _make_sample(honbu: str = DEFAULT_HONBU) -> pd.DataFrame:
     """
-    실제 원시 파일 5개 행 기반 샘플 + 추가 임의 데이터.
-    포맷은 실제 원시 데이터 구조와 동일하게 유지.
+    실제 원시 파일 구조와 동일한 컬럼을 가진 샘플 DataFrame.
+    헤더명은 실제 원시 파일과 100% 동일하게 유지.
     """
     import random
     random.seed(hash(honbu) % (2**32))
 
-    BIZ   = ["단순폐국","이설후폐국","최적화후폐국"]
-    TOSI  = ["단독","통시","아파트","공용"]
+    BIZ   = ["단순폐국", "이설후폐국", "최적화후폐국"]
+    TOSI  = ["단독", "통시", "아파트", "공용"]
     MONTHS_TARGET = {"1월":114,"2월":51,"3월":80,"4월":89,"5월":60,"6월":45}
-    scale = {"수도권":1.35,"04.중부":1.0,"동부":0.90,"서부":0.80}.get(honbu, 1.0)
+    scale = {"수도권":1.35,"04.중부":1.0,"동부":0.90,"서부":0.80}.get(honbu,1.0)
 
-    # 실제 샘플 5건 (샘플.xlsx 기반)
+    # 실제 샘플 5건 (샘플.xlsx 기반) — 원시 컬럼명 그대로
     real = []
     if honbu == "04.중부":
         real = [
-            dict(id="171822", sitekey="CB111114172007443",
-                 site_name="석계WMC.56", honbu="04.중부", network="WCDMA",
-                 status="운용", tosi="단독", rent_no="", elec_no="",
-                 rent_ann_ah=0, elec_ann_q=0,
-                 site_err="정상", pool_yn="반영", pool_reason="",
-                 biz_type="단순폐국", off_month="1월", close_month="", voc="",
-                 type_cls="01.3G단독"),
-            dict(id="171828", sitekey="CB111114342336093",
-                 site_name="청주공단5거리", honbu="04.중부", network="WCDMA",
-                 status="운용", tosi="단독", rent_no="MC00018845", elec_no="ME00020272",
-                 rent_ann_ah=1500000, elec_ann_q=0.26,
-                 site_err="정상", pool_yn="반영", pool_reason="",
-                 biz_type="단순폐국", off_month="1월", close_month="", voc="",
-                 type_cls="01.3G단독"),
-            dict(id="171834", sitekey="CB111114373997427",
-                 site_name="청주운천초교", honbu="04.중부", network="WCDMA",
-                 status="운용", tosi="단독", rent_no="MC00039585", elec_no="ME00040521",
-                 rent_ann_ah=1500000, elec_ann_q=0.29,
-                 site_err="정상", pool_yn="반영", pool_reason="",
-                 biz_type="단순폐국", off_month="2월", close_month="", voc="",
-                 type_cls="01.3G단독"),
-            dict(id="171836", sitekey="CN111114173921607",
-                 site_name="팔봉천송펜션", honbu="04.중부", network="WCDMA",
-                 status="운용", tosi="단독", rent_no="MC00036907", elec_no="ME00038627",
-                 rent_ann_ah=500000, elec_ann_q=0.33,
-                 site_err="정상", pool_yn="반영", pool_reason="",
-                 biz_type="단순폐국", off_month="3월", close_month="", voc="",
-                 type_cls="01.3G단독"),
-            dict(id="171837", sitekey="CN111114100052041",
-                 site_name="입장가산2DOR", honbu="04.중부", network="WCDMA",
-                 status="운용", tosi="통시", rent_no="", elec_no="",
-                 rent_ann_ah=0, elec_ann_q=0.01,
-                 site_err="정상", pool_yn="미반영",
-                 pool_reason="LOS 반경 400m 내 당사 Site 없음",
-                 biz_type="", off_month="3월", close_month="", voc="",
-                 type_cls=""),
+            {
+                "id": "171822",
+                "[자료수합용] 2nd 순번\n(본부별 분리용)": None,
+                "[자료수합용] 최초 오름차순 순번": "수합용_182329",
+                "[Vlookup 순번]": "Row628595",
+                "[ERP]통합시설코드": "200634189",
+                "통시중복": "1",
+                "[ERP] 국소명": "석계WMC.56.WCDMA.SF-W20",
+                "[ERP] 사업망 구분": "WCDMA",
+                "[ERP] 운용 상태": "운용",
+                "[ERP] 본부": "04.중부",
+                "[ERP] 공대, Sub구분": "단독",
+                "[ERP] 공용대표코드": "200634189",
+                "[ERP] Sitekey": "CB111114172007443",
+                "[ERP] 임차물건번호": None,
+                "[ERP 전기물건] 전기료내역마스터": None,
+                "[통합Eng DB] 연_임차_료": None,
+                "[통합Eng DB] 연_전기_료": None,
+                "[ERP] 상호정산비용": None,
+                "후보\nPool": "3G 단독",
+                "본부": "04.중부",
+                "사이트오류\n제외대상": "정상",
+                "후보Pool\n반영여부": "반영",
+                "후보Pool\n미반영사유": None,
+                "사업유형": "단순폐국",
+                "Off 월": "1월_Off",
+                "폐국 월": None,
+                "VoC": None,
+                "1월 Off 367": "1월",
+                "(최종)\n유형분류": "01.3G단독",
+                "(2월대상)연환산임차료": "0",
+                "임차번호\n(① 통시 ② 임차)": "0",
+                "연환산임차료\n(통시+임차+수기)": "없음",
+            },
+            {
+                "id": "171828",
+                "[자료수합용] 2nd 순번\n(본부별 분리용)": None,
+                "[자료수합용] 최초 오름차순 순번": "수합용_173656",
+                "[Vlookup 순번]": "Row694708",
+                "[ERP]통합시설코드": "200634529",
+                "통시중복": "1",
+                "[ERP] 국소명": "청주공단5거리WMC.56.WCDMA.SF-W20",
+                "[ERP] 사업망 구분": "WCDMA",
+                "[ERP] 운용 상태": "운용",
+                "[ERP] 본부": "04.중부",
+                "[ERP] 공대, Sub구분": "단독",
+                "[ERP] 공용대표코드": "200634529",
+                "[ERP] Sitekey": "CB111114342336093",
+                "[ERP] 임차물건번호": "MC00018845",
+                "[ERP 전기물건] 전기료내역마스터": "ME00020272",
+                "[통합Eng DB] 연_임차_료": "1.5",
+                "[통합Eng DB] 연_전기_료": "0.26",
+                "[ERP] 상호정산비용": None,
+                "후보\nPool": "3G 단독",
+                "본부": "04.중부",
+                "사이트오류\n제외대상": "정상",
+                "후보Pool\n반영여부": "반영",
+                "후보Pool\n미반영사유": None,
+                "사업유형": "단순폐국",
+                "Off 월": "1월_Off",
+                "폐국 월": None,
+                "VoC": None,
+                "1월 Off 367": "1월",
+                "(최종)\n유형분류": "01.3G단독",
+                "(2월대상)연환산임차료": "0",
+                "임차번호\n(① 통시 ② 임차)": "MC00018845",
+                "연환산임차료\n(통시+임차+수기)": "1500000",
+                "(작업중) 연환산임차료_통시": "1500000",
+                "(작업중) 연환산임차료_임차번호": "1500000",
+            },
+            {
+                "id": "171834",
+                "[자료수합용] 2nd 순번\n(본부별 분리용)": None,
+                "[자료수합용] 최초 오름차순 순번": "수합용_189593",
+                "[Vlookup 순번]": "Row697145",
+                "[ERP]통합시설코드": "200736452",
+                "통시중복": "1",
+                "[ERP] 국소명": "청주운천초교WMC.56.WCDMA.SF-W20",
+                "[ERP] 사업망 구분": "WCDMA",
+                "[ERP] 운용 상태": "운용",
+                "[ERP] 본부": "04.중부",
+                "[ERP] 공대, Sub구분": "단독",
+                "[ERP] 공용대표코드": "200736452",
+                "[ERP] Sitekey": "CB111114373997427",
+                "[ERP] 임차물건번호": "MC00039585",
+                "[ERP 전기물건] 전기료내역마스터": "ME00040521",
+                "[통합Eng DB] 연_임차_료": "1.5",
+                "[통합Eng DB] 연_전기_료": "0.29",
+                "[ERP] 상호정산비용": None,
+                "후보\nPool": "3G 단독",
+                "본부": "04.중부",
+                "사이트오류\n제외대상": "정상",
+                "후보Pool\n반영여부": "반영",
+                "후보Pool\n미반영사유": None,
+                "사업유형": "단순폐국",
+                "Off 월": "2월_Off",
+                "폐국 월": None,
+                "VoC": None,
+                "1월 Off 367": "2월",
+                "(최종)\n유형분류": "01.3G단독",
+                "(2월대상)연환산임차료": "0",
+                "임차번호\n(① 통시 ② 임차)": "MC00039585",
+                "연환산임차료\n(통시+임차+수기)": "1500000",
+                "(작업중) 연환산임차료_통시": "1500000",
+                "(작업중) 연환산임차료_임차번호": "1500000",
+            },
+            {
+                "id": "171836",
+                "[자료수합용] 2nd 순번\n(본부별 분리용)": None,
+                "[자료수합용] 최초 오름차순 순번": "수합용_198992",
+                "[Vlookup 순번]": "Row647899",
+                "[ERP]통합시설코드": "200736559",
+                "통시중복": "1",
+                "[ERP] 국소명": "팔봉천송펜션WMC.56.WCDMA.SF-W20",
+                "[ERP] 사업망 구분": "WCDMA",
+                "[ERP] 운용 상태": "운용",
+                "[ERP] 본부": "04.중부",
+                "[ERP] 공대, Sub구분": "단독",
+                "[ERP] 공용대표코드": "200736559",
+                "[ERP] Sitekey": "CN111114173921607",
+                "[ERP] 임차물건번호": "MC00036907",
+                "[ERP 전기물건] 전기료내역마스터": "ME00038627",
+                "[통합Eng DB] 연_임차_료": "0.5",
+                "[통합Eng DB] 연_전기_료": "0.33",
+                "[ERP] 상호정산비용": None,
+                "후보\nPool": "3G 단독",
+                "본부": "04.중부",
+                "사이트오류\n제외대상": "정상",
+                "후보Pool\n반영여부": "반영",
+                "후보Pool\n미반영사유": None,
+                "사업유형": "단순폐국",
+                "Off 월": "3월_Off",
+                "폐국 월": None,
+                "VoC": None,
+                "1월 Off 367": "3월",
+                "(최종)\n유형분류": "01.3G단독",
+                "(2월대상)연환산임차료": "0",
+                "임차번호\n(① 통시 ② 임차)": "MC00036907",
+                "연환산임차료\n(통시+임차+수기)": None,
+                "(작업중) 연환산임차료_통시": "500000",
+                "(작업중) 연환산임차료_임차번호": "500000",
+            },
+            {
+                "id": "171968",
+                "[자료수합용] 2nd 순번\n(본부별 분리용)": None,
+                "[자료수합용] 최초 오름차순 순번": "수합용_192181",
+                "[Vlookup 순번]": "Row666479",
+                "[ERP]통합시설코드": "200934163",
+                "통시중복": "1",
+                "[ERP] 국소명": "입장가산2DOR.56.WCDMA.OR-DUO2",
+                "[ERP] 사업망 구분": "WCDMA",
+                "[ERP] 운용 상태": "운용",
+                "[ERP] 본부": "04.중부",
+                "[ERP] 공대, Sub구분": "단독",
+                "[ERP] 공용대표코드": "200934163",
+                "[ERP] Sitekey": "CN111114100052041",
+                "[ERP] 임차물건번호": None,
+                "[ERP 전기물건] 전기료내역마스터": None,
+                "[통합Eng DB] 연_임차_료": None,
+                "[통합Eng DB] 연_전기_료": "0.01",
+                "[ERP] 상호정산비용": None,
+                "후보\nPool": "3G 단독",
+                "본부": "04.중부",
+                "사이트오류\n제외대상": "정상",
+                "후보Pool\n반영여부": "미반영",
+                "후보Pool\n미반영사유": "LOS 반경 400m .내 당사 Site 없음",
+                "사업유형": None,
+                "Off 월": "3월_Off",
+                "폐국 월": None,
+                "VoC": None,
+                "1월 Off 367": "3월",
+                "(최종)\n유형분류": "01.3G단독",
+                "(2월대상)연환산임차료": "0",
+                "임차번호\n(① 통시 ② 임차)": None,
+                "연환산임차료\n(통시+임차+수기)": None,
+            },
         ]
 
     rows = list(real)
-    used = {r["sitekey"] for r in real}
+    used = {r["[ERP] Sitekey"] for r in real}
     prefix = honbu[:2]
 
     for month, base_cnt in MONTHS_TARGET.items():
         target = int(base_cnt * scale)
-        cur = sum(1 for r in rows if r.get("off_month") == month)
+        cur = sum(1 for r in rows
+                  if parse_off_month(r.get("Off 월","")) == month)
         for i in range(max(0, target - cur)):
             biz  = random.choices(BIZ,  weights=[0.65,0.22,0.13])[0]
             tosi = random.choices(TOSI, weights=[0.55,0.25,0.12,0.08])[0]
-            # 원 단위 임차료 (AH열 기준)
             rent_ah = random.choice([0,500000,600000,800000,1000000,1500000,1800000,2400000])
-            elec_q  = round(random.uniform(0.05, 0.60), 2)   # 억원 단위
+            elec_q  = round(random.uniform(0.05, 0.60), 2)
             key = "{}{}".format(prefix, random.randint(10**13, 10**14-1))
             while key in used:
                 key = "{}{}".format(prefix, random.randint(10**13, 10**14-1))
             used.add(key)
-            rows.append(dict(
-                id          = str(random.randint(100000, 999999)),
-                sitekey     = key,
-                site_name   = "샘플_{}_{}_{:03d}".format(honbu, month, i+1),
-                honbu       = honbu,
-                network     = random.choice(["WCDMA","LTE","5G"]),
-                status      = "운용",
-                tosi        = tosi,
-                rent_no     = "MC{:08d}".format(random.randint(0,99999999)) if rent_ah>0 else "",
-                elec_no     = "ME{:08d}".format(random.randint(0,99999999)),
-                rent_ann_ah = rent_ah,
-                elec_ann_q  = elec_q,
-                site_err    = "정상",
-                pool_yn     = "미반영" if random.random()<0.05 else "반영",
-                pool_reason = "",
-                biz_type    = biz,
-                off_month   = month,
-                close_month = "",
-                voc         = "Y" if random.random()<0.03 else "",
-                type_cls    = "",
-            ))
+            is_pool = random.random() > 0.05
+            rows.append({
+                "id": str(random.randint(100000,999999)),
+                "[ERP] 국소명": "샘플_{}_{}_{:03d}".format(honbu, month, i+1),
+                "[ERP] 사업망 구분": random.choice(["WCDMA","LTE","5G"]),
+                "[ERP] 운용 상태": "운용",
+                "[ERP] 본부": honbu,
+                "[ERP] 공대, Sub구분": tosi,
+                "[ERP] Sitekey": key,
+                "[ERP] 임차물건번호": "MC{:08d}".format(random.randint(0,99999999)) if rent_ah>0 else None,
+                "[ERP 전기물건] 전기료내역마스터": "ME{:08d}".format(random.randint(0,99999999)),
+                "[통합Eng DB] 연_임차_료": str(round(rent_ah/1000000, 2)) if rent_ah else None,
+                "[통합Eng DB] 연_전기_료": str(elec_q),
+                "사이트오류\n제외대상": "정상",
+                "후보Pool\n반영여부": "반영" if is_pool else "미반영",
+                "후보Pool\n미반영사유": None if is_pool else "LOS 반경내 당사 Site 없음",
+                "사업유형": biz,
+                "Off 월": "{}_Off".format(month),
+                "폐국 월": None,
+                "VoC": "Y" if random.random()<0.03 else None,
+                "연환산임차료\n(통시+임차+수기)": str(rent_ah) if rent_ah else None,
+            })
 
     df = pd.DataFrame(rows)
-    # pool_reason 채우기
-    df.loc[df["pool_yn"]=="미반영","pool_reason"] = "LOS 반경 400m 내 당사 Site 없음"
+
+    # 파생 컬럼 추가
+    df["_sitekey"]   = df["[ERP] Sitekey"].fillna("")
+    df["_honbu"]     = df.get("[ERP] 본부", honbu)
+    df["_site_err"]  = df.get("사이트오류\n제외대상", "정상").fillna("정상")
+    df["_pool_yn"]   = df.get("후보Pool\n반영여부", "반영").fillna("반영")
+    df["_biz_type"]  = df.get("사업유형", "").fillna("")
+    df["_tosi"]      = df.get("[ERP] 공대, Sub구분", "").fillna("")
+    df["_off_month"] = df.get("Off 월", "").apply(parse_off_month)
+
+    ah_col = "연환산임차료\n(통시+임차+수기)"
+    df["_rent_ann"] = pd.to_numeric(
+        df[ah_col].replace({"없음": None}) if ah_col in df.columns else None,
+        errors="coerce"
+    ).fillna(0) / 10000
+
+    q_col = "[통합Eng DB] 연_전기_료"
+    df["_elec_ann"] = pd.to_numeric(
+        df[q_col] if q_col in df.columns else None,
+        errors="coerce"
+    ).fillna(0) * 100
+
     return df

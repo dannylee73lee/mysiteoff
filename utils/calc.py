@@ -12,16 +12,16 @@ ANNUAL_GOAL = 310   # 기본값 (04.중부)
 
 
 def infer_sav_type(row) -> str:
-    tosi = str(row.get("tosi",""))
-    biz  = str(row.get("biz_type",""))
-    rent = float(row.get("rent_ann", 0) or 0)
+    tosi = str(row.get("_tosi", row.get("tosi", "")))
+    biz  = str(row.get("_biz_type", row.get("biz_type", "")))
+    rent = float(row.get("_rent_ann", row.get("rent_ann", 0)) or 0)
     if tosi == "단독":                 return "임차+전기"
     if tosi in ("아파트","공용"):       return "절감없음"
     if biz  == "최적화후폐국":          return "전기만"
     return "임차+전기" if rent > 0 else "전기만"
 
 
-def calc_savings(df: pd.DataFrame) -> pd.DataFrame:
+def calc_savings(df: pd.DataFrame, rent_col: str = "_rent_ann", elec_col: str = "_elec_ann", sav_col: str = "sav_type") -> pd.DataFrame:
     df = df.copy()
     if "sav_type" in df.columns:
         mask = df["sav_type"].isna() | (df["sav_type"] == "")
@@ -29,9 +29,12 @@ def calc_savings(df: pd.DataFrame) -> pd.DataFrame:
     else:
         df["sav_type"] = df.apply(infer_sav_type, axis=1)
 
-    rent  = pd.to_numeric(df.get("rent_ann",  0), errors="coerce").fillna(0)
-    elec  = pd.to_numeric(df.get("elec_ann",  0), errors="coerce").fillna(0)
-    sav   = df["sav_type"]
+    rent  = pd.to_numeric(df.get(rent_col, 0), errors="coerce").fillna(0)
+    elec  = pd.to_numeric(df.get(elec_col, 0), errors="coerce").fillna(0)
+    if sav_col not in df.columns:
+        df = df.copy()
+        df[sav_col] = df.apply(infer_sav_type, axis=1)
+    sav = df[sav_col]
     inv_b = pd.to_numeric(df.get("inv_bun",   0), errors="coerce").fillna(0)
     inv_r = pd.to_numeric(df.get("inv_bae",   0), errors="coerce").fillna(0)
 
@@ -41,6 +44,7 @@ def calc_savings(df: pd.DataFrame) -> pd.DataFrame:
 
     df["savings_ann"] = savings
     df["inv_total"]   = inv_b + inv_r
+    df["_inv_total"]  = df["inv_total"]   # 계산용 별칭
     df["net_savings"] = df["savings_ann"] - df["inv_total"]
     df["savings_mon"] = (df["savings_ann"] / 12).round(1)
 
