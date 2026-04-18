@@ -1,6 +1,6 @@
 """
-streamlit_app.py — 폐국 관리 시스템 v2 (Professional BI Edition)
-작성일: 2026-04-18
+app.py  —  폐국 관리 시스템 · 메인 현황
+실행: streamlit run app.py
 """
 import sys
 from pathlib import Path
@@ -9,11 +9,7 @@ import streamlit as st
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# ── 1. 시스템 환경 및 유틸리티 로드 ────────────────────────────────
-current_dir = Path(__file__).parent
-if str(current_dir) not in sys.path:
-    sys.path.insert(0, str(current_dir))
-
+sys.path.insert(0, str(Path(__file__).parent))
 from utils.data_loader import (
     load_raw, file_hash, apply_extra, load_extra, MAIN_FILE, RENT_FILE,
 )
@@ -22,223 +18,527 @@ from utils.calc import (
     equipment_summary, voc_summary, ANNUAL_GOAL, CONFIRMED,
 )
 
-# ── 2. 페이지 구성 및 디자인 시스템 ───────────────────────────────
 st.set_page_config(
-    page_title="Asset Retirement BI — 04.중부",
-    page_icon="📊",
+    page_title="폐국 관리 — 04.중부",
+    page_icon="📡",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# 전문적인 UI 스타일링 (Slate & Indigo 테마)
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-    .stApp { background-color: #F8FAFC; font-family: 'Inter', sans-serif; }
-    
-    /* Global Container */
-    .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
-
-    /* KPI Cards */
-    .kpi-card {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        height: 100%;
-    }
-    .kpi-label { font-size: 0.75rem; color: #64748B; font-weight: 600; text-transform: uppercase; letter-spacing: 0.025em; margin-bottom: 8px; }
-    .kpi-value { font-size: 1.75rem; color: #0F172A; font-weight: 700; line-height: 1; margin-bottom: 12px; }
-    .kpi-sub { font-size: 0.8rem; color: #94A3B8; display: flex; align-items: center; gap: 4px; }
-    .kpi-progress-bg { background: #F1F5F9; height: 6px; border-radius: 3px; margin-top: 12px; overflow: hidden; }
-    .kpi-progress-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease-in-out; }
-
-    /* Chart & Table Cards */
-    .content-card {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 12px;
-        padding: 24px;
-        margin-bottom: 1.5rem;
-    }
-    .card-title { font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 4px; }
-    .card-subtitle { font-size: 0.8rem; color: #64748B; margin-bottom: 20px; }
-
-    /* Custom Table */
-    .bi-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    .bi-table thead th { background: #F8FAFC; padding: 12px 8px; border-bottom: 2px solid #E2E8F0; color: #475569; font-weight: 600; text-align: right; }
-    .bi-table thead th:first-child { text-align: left; }
-    .bi-table tbody td { padding: 12px 8px; border-bottom: 1px solid #F1F5F9; color: #334155; text-align: right; }
-    .bi-table tbody td:first-child { text-align: left; font-weight: 600; }
-    
-    /* Badges */
-    .badge { padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
-    .badge-blue { background: #E0F2FE; color: #0369A1; }
-    .badge-green { background: #DCFCE7; color: #15803D; }
-    .badge-amber { background: #FEF3C7; color: #B45309; }
+.block-container{padding-top:0.6rem;padding-bottom:1rem}
+[data-testid="stSidebar"]{min-width:180px;max-width:200px}
+thead tr th{background:var(--secondary-background-color)!important;font-size:11px!important}
+tbody tr td{font-size:11px!important}
+/* KPI 카드 */
+.kpi-card{
+    background:var(--background-color);
+    border:0.5px solid rgba(128,128,128,0.2);
+    border-radius:10px;
+    padding:12px 14px 10px 14px;
+    height:100%;
+}
+.kpi-label{font-size:11px;color:var(--text-color);opacity:.6;margin-bottom:2px}
+.kpi-value{font-size:26px;font-weight:600;line-height:1.1;margin-bottom:2px}
+.kpi-sub{font-size:10px;opacity:.55;margin-bottom:6px}
+.kpi-bar{height:3px;border-radius:2px;background:rgba(128,128,128,0.15)}
+.kpi-bar-fill{height:3px;border-radius:2px}
+/* 차트 카드 */
+.chart-card{
+    background:var(--background-color);
+    border:0.5px solid rgba(128,128,128,0.2);
+    border-radius:10px;
+    padding:14px 16px 10px 16px;
+    margin-bottom:12px;
+}
+.chart-title{font-size:12px;font-weight:600;color:var(--text-color);margin-bottom:1px}
+.chart-sub{font-size:10px;opacity:.5;margin-bottom:8px}
+/* 범례 칩 */
+.leg-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:10px;opacity:.7}
+.leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.leg-line{width:14px;height:2px;flex-shrink:0}
+.leg-dash{width:14px;height:0;border-top:2px dashed;flex-shrink:0}
+/* 미니 스탯 칩 */
+.stat-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.stat-chip{
+    font-size:10px;padding:3px 9px;border-radius:20px;
+    background:var(--secondary-background-color);
+    border:0.5px solid rgba(128,128,128,0.2);
+    color:var(--text-color);
+}
+.stat-chip b{font-weight:600}
 </style>
 """, unsafe_allow_html=True)
 
-# BI 컬러 팔레트 정의
-COLORS = {
-    "primary": "#2563EB", "success": "#10B981", "warning": "#F59E0B",
-    "danger": "#EF4444", "slate": "#64748B", "grid": "rgba(226, 232, 240, 0.5)"
-}
+C = dict(blue="#185FA5", green="#3B6D11", amber="#854F0B",
+         red="#A32D2D", purple="#534AB7", teal="#0F6E56", gray="#888780")
+BIZ_C = {"단순폐국": C["blue"], "이설후폐국": C["purple"], "최적화후폐국": C["teal"]}
+SAV_C = {"임차+전기": C["green"], "전기만": C["amber"], "절감없음": C["gray"]}
+GC = "rgba(128,128,128,0.10)"
 
-# ── 3. 데이터 엔진 ──────────────────────────────────────────────
-@st.cache_data(show_spinner="분석 데이터를 연산 중입니다...")
-def fetch_and_process_data(fhash):
-    df_raw = load_raw(fhash)
-    extra = load_extra()
-    df = apply_extra(df_raw, extra)
-    # 데이터 정제 (정상 사이트 & Pool 반영 건)
-    mask = (df.get("site_err", "정상") == "정상") & (df.get("pool_yn", "반영") == "반영")
-    df_pool = df[mask].copy()
+@st.cache_data(show_spinner="데이터 로딩 중…")
+def get_data(fhash):
+    df_raw  = load_raw(fhash)
+    extra   = load_extra()
+    df      = apply_extra(df_raw, extra)
+    df_pool = df[
+        (df.get("site_err", pd.Series("정상", index=df.index)) == "정상") &
+        (df.get("pool_yn",  pd.Series("반영",  index=df.index)) == "반영")
+    ].copy()
     return calc_savings(df_pool)
 
-try:
-    df_pool = fetch_and_process_data(file_hash(MAIN_FILE))
-    df_conf = df_pool[df_pool["off_month"].isin(CONFIRMED)]
-except Exception as e:
-    st.error(f"데이터 파이프라인 연동 실패: {e}")
-    st.stop()
+df_pool = get_data(file_hash(MAIN_FILE))
+df_conf = df_pool[df_pool["off_month"].isin(CONFIRMED)]
 
-# ── 4. 사이드바 (내비게이션 및 필터) ──────────────────────────────
+# ── 사이드바 ─────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("<h2 style='font-size:1.2rem; color:#1E293B;'>Asset Management</h2>", unsafe_allow_html=True)
-    st.caption("04.중부 본부 통합 관제")
+    st.markdown("### 📡 폐국 관리 시스템")
+    st.markdown("**04.중부 본부**")
     st.divider()
-    
-    st.markdown("**Navigation**")
-    st.page_link("streamlit_app.py", label="실적 요약 대시보드", icon="📊")
-    
-    pool_file = "pages/1_후보_Pool_편집.py"
-    if Path(pool_file).exists():
-        st.page_link(pool_file, label="후보 Pool 관리", icon="⚙️")
-        
+
+    st.markdown("**페이지**")
+    st.markdown(
+        '<div style="background:var(--secondary-background-color);border-radius:6px;'
+        'padding:5px 10px;margin:2px 0;font-size:12px;font-weight:500">'
+        '📊 메인 현황</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div style="padding:5px 10px;margin:2px 0;font-size:12px">'
+        '<a href="/후보_Pool_편집" target="_self" '
+        'style="text-decoration:none;color:var(--text-color)">📋 후보 Pool 편집</a></div>',
+        unsafe_allow_html=True,
+    )
+
     st.divider()
-    st.markdown("**Analysis Scope**")
-    MONTHS = ["1월", "2월", "3월", "4월", "5월", "6월"]
-    selected_months = []
-    for m in MONTHS:
-        is_checked = (m in CONFIRMED or m == "4월")
-        count = len(df_pool[df_pool["off_month"] == m])
-        label = f"{m} ({count}건)" if count > 0 else m
-        if st.checkbox(label, value=is_checked, key=f"filter_{m}"):
-            selected_months.append(m)
-            
+    st.markdown("**Off 월**")
+    MONTH_ORDER = ["1월","2월","3월","4월","5월","6월"]
+    MON_STATUS  = {m: ("✅" if m in CONFIRMED else ("🔄" if m=="4월" else "⏳")) for m in MONTH_ORDER}
+    sel_months  = []
+    for m in MONTH_ORDER:
+        cnt = len(df_pool[df_pool["off_month"] == m])
+        lbl = "{} {}{}".format(MON_STATUS[m], m, "  `{}건`".format(cnt) if cnt else "")
+        if st.checkbox(lbl, value=(m in CONFIRMED or m=="4월"), key="m_"+m):
+            sel_months.append(m)
+
     st.divider()
-    if st.button("🔄 데이터 새로고침", width="stretch"):
+    st.markdown("**데이터 파일**")
+    st.markdown(("🟢" if MAIN_FILE.exists() else "🟡") + " 중부_원시데이터.xlsx")
+    st.markdown(("🟢" if RENT_FILE.exists() else "🟡") + " 임차_전기DB.xlsx")
+    if not MAIN_FILE.exists():
+        st.caption("⚠️ 샘플 데이터 사용 중")
+    if st.button("🔄 새로고침"):
         st.cache_data.clear()
         st.rerun()
 
-# ── 5. 헤더 섹션 ────────────────────────────────────────────────
-h_left, h_right = st.columns([3, 1])
-with h_left:
-    st.markdown("<h1 style='font-size:1.8rem; font-weight:800; color:#0F172A; margin-bottom:0.3rem;'>폐국 운영 실적 리포트</h1>", unsafe_allow_html=True)
-    st.markdown(f"<p style='color:#64748B;'>분석 대상: {', '.join(selected_months)} | 확정 상태: 1~3월 완료</p>", unsafe_allow_html=True)
+# ── KPI 계산 ─────────────────────────────────────────────────
+total_conf = len(df_conf)
+rent_conf  = round(df_conf["savings_ann"].sum() * 0.85 / 10000, 1)
+elec_conf  = round(df_conf["elec_ann"].sum() / 10000, 1)
+pct_conf   = round(total_conf / ANNUAL_GOAL * 100, 1)
+voc_df     = voc_summary(df_pool)
+voc_issued = int(voc_df["발생"].sum())          if len(voc_df) else 0
+voc_open   = int(voc_df["미처리누계"].iloc[-1]) if len(voc_df) else 0
+eq_data    = equipment_summary(df_pool)
+eq_total   = sum(sum(v.values()) for v in eq_data.values())
 
-# ── 6. KPI Dashboard ───────────────────────────────────────────
-# 주요 지표 계산
-total_count = len(df_conf)
-rent_savings = round(df_conf["savings_ann"].sum() * 0.85 / 10000, 1)
-elec_savings = round(df_conf["elec_ann"].sum() / 10000, 1)
-achieve_rate = round(total_count / ANNUAL_GOAL * 100, 1)
-voc_data = voc_summary(df_pool)
-voc_pending = int(voc_data["미처리누계"].iloc[-1]) if not voc_data.empty else 0
-
-def render_kpi_card(label, value, unit, sub_text, progress, color):
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">{label}</div>
-        <div class="kpi-value">{value}<span style="font-size:1rem; color:#94A3B8; margin-left:4px;">{unit}</span></div>
-        <div class="kpi-sub"><span>{sub_text}</span></div>
-        <div class="kpi-progress-bg">
-            <div class="kpi-progress-fill" style="width:{min(progress, 100)}%; background:{color};"></div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-k_cols = st.columns(5)
-with k_cols[0]: render_kpi_card("누적 폐국 실적", str(total_count), "개소", f"목표 {ANNUAL_GOAL}개 대비", achieve_rate, COLORS["primary"])
-with k_cols[1]: render_kpi_card("임차 비용 절감", str(rent_savings), "억", "연간 순절감액", 75, COLORS["success"])
-with k_cols[2]: render_kpi_card("전력 비용 절감", str(elec_savings), "억", "연간 순절감액", 45, COLORS["success"])
-with k_cols[3]: render_kpi_card("VoC 미처리 현황", str(voc_pending), "건", "실시간 대응 필요", (voc_pending*10) if voc_pending < 10 else 100, COLORS["danger"])
-with k_cols[4]: render_kpi_card("목표 달성률", str(achieve_rate), "%", "연간 목표 이행도", achieve_rate, COLORS["warning"])
-
-st.markdown("<div style='height:1.5rem;'></div>", unsafe_allow_html=True)
-
-# ── 7. Main Analytics (Charts) ─────────────────────────────────
-tab_summary, tab_detail = st.tabs(["📊 성과 분석 차트", "📋 세부 데이터 시트"])
-
-with tab_summary:
-    c1, c2 = st.columns(2)
-    
-    with c1:
-        st.markdown('<div class="content-card"><div class="card-title">월별 목표 이행 트렌드</div><div class="card-subtitle">실적 및 누적 달성률 추이</div>', unsafe_allow_html=True)
-        m_sum = monthly_summary(df_pool)
-        
-        fig_trend = make_subplots(specs=[[{"secondary_y": True}]])
-        fig_trend.add_trace(go.Bar(x=m_sum["월"], y=m_sum["실적"], name="월 실적", marker_color=COLORS["primary"], opacity=0.8), secondary_y=False)
-        fig_trend.add_trace(go.Scatter(x=m_sum["월"], y=m_sum["누계달성률"], name="누계 달성률", line=dict(color=COLORS["success"], width=3, shape='spline'), mode='lines+markers+text', text=[f"{v}%" for v in m_sum["누계달성률"]], textposition="top center"), secondary_y=True)
-        
-        fig_trend.update_layout(height=300, margin=dict(l=0, r=0, t=10, b=0), showlegend=False, plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
-        fig_trend.update_yaxes(gridcolor=COLORS["grid"], secondary_y=False)
-        fig_trend.update_yaxes(showgrid=False, range=[0, 120], secondary_y=True)
-        st.plotly_chart(fig_trend, width="stretch", config={'displayModeBar': False})
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with c2:
-        st.markdown('<div class="content-card"><div class="card-title">사업 유형별 비중</div><div class="card-subtitle">사업 유형 및 절감 방식 분포</div>', unsafe_allow_html=True)
-        biz_data = biz_type_summary(df_conf)
-        
-        fig_pie = go.Figure(data=[go.Pie(labels=biz_data["사업유형"], values=biz_data["건수"], hole=0.5, marker=dict(colors=[COLORS["primary"], "#8B5CF6", "#14B8A6"]))])
-        fig_pie.update_layout(height=300, margin=dict(l=0, r=0, t=10, b=0), legend=dict(orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5))
-        st.plotly_chart(fig_pie, width="stretch")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-# ── 8. Detailed Report (Table) ──────────────────────────────────
-with tab_detail:
-    st.markdown('<div class="content-card"><div class="card-title">월별 실적 상세 현황</div><div style="height:15px"></div>', unsafe_allow_html=True)
-    
-    # 데이터 전처리: 테이블용 포맷팅
-    m_report = m_sum.copy()
-    
-    # HTML 테이블 생성
-    headers = ["월", "실적(건)", "누계(건)", "달성률", "임차+전기", "전기만", "순절감(억)", "상태"]
-    rows_html = ""
-    for _, row in m_report.iterrows():
-        status_cls = "badge-green" if row["상태"] == "확정" else "badge-amber"
-        rows_html += f"""
-        <tr>
-            <td>{row['월']}</td>
-            <td>{row['실적']}</td>
-            <td>{row['누계']}</td>
-            <td style="color:{COLORS['primary']}; font-weight:700;">{row['누계달성률']}%</td>
-            <td>{row['임차+전기']}</td>
-            <td>{row['전기만']}</td>
-            <td style="color:{COLORS['success']}; font-weight:700;">{row['순절감']}억</td>
-            <td><span class="badge {status_cls}">{row['상태']}</span></td>
-        </tr>
-        """
-    
-    st.markdown(f"""
-    <table class="bi-table">
-        <thead><tr>{"".join([f"<th>{h}</th>" for h in headers])}</tr></thead>
-        <tbody>{rows_html}</tbody>
-    </table>
-    """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # 사업유형별 BEP 분석 섹션 추가
-    st.markdown("##### 📌 사업유형별 투자 수익성(BEP) 분석")
-    st.dataframe(
-        biz_data[['사업유형', '건수', '임차료절감', '순절감', '평균BEP']],
-        width="stretch",
-        hide_index=True,
-        column_config={
-            "평균BEP": st.column_config.NumberColumn("평균 BEP (개월)", format="%d 개월"),
-            "순절감": st.column_config.NumberColumn("순절감 (억)", format="%.2f 억")
-        }
+# ── 상단 토바 ────────────────────────────────────────────────
+top_l, top_r = st.columns([6, 1])
+with top_l:
+    st.markdown(
+        '<div style="display:flex;align-items:center;gap:8px;padding:4px 0 8px 0">'
+        '<span style="font-size:18px;font-weight:700">메인 현황</span>'
+        '<span style="background:#FAEEDA;color:#854F0B;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:500">04.중부</span>'
+        '<span style="background:#EAF3DE;color:#3B6D11;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:500">1~3월 확정</span>'
+        '<span style="background:#FAEEDA;color:#854F0B;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:500">4월 검토중</span>'
+        '</div>',
+        unsafe_allow_html=True,
     )
+with top_r:
+    c_r1, c_r2 = st.columns([1,1])
+    with c_r1:
+        if st.button("새로고침"):
+            st.cache_data.clear()
+            st.rerun()
+    with c_r2:
+        st.button("내보내기")
+
+# ── KPI 카드 5개 ─────────────────────────────────────────────
+def kpi_html(label, value, sub, bar_pct, bar_color):
+    fill = min(bar_pct, 100)
+    return (
+        '<div class="kpi-card">'
+        '<div class="kpi-label">{}</div>'
+        '<div class="kpi-value" style="color:{}">{}</div>'
+        '<div class="kpi-sub">{}</div>'
+        '<div class="kpi-bar"><div class="kpi-bar-fill" style="width:{}%;background:{}"></div></div>'
+        '</div>'
+    ).format(label, bar_color, value, sub, fill, bar_color)
+
+k1,k2,k3,k4,k5 = st.columns(5)
+k1.markdown(kpi_html("누적 실적 (1~3월)", str(total_conf),
+    "목표 {} 대비 {}%".format(ANNUAL_GOAL, pct_conf), pct_conf, C["blue"]),
+    unsafe_allow_html=True)
+k2.markdown(kpi_html("확정 절감 임차료", str(rent_conf)+"억",
+    "순절감 기준", 65, C["green"]),
+    unsafe_allow_html=True)
+k3.markdown(kpi_html("확정 절감 전기료", str(elec_conf)+"억",
+    "순절감 기준", 40, C["green"]),
+    unsafe_allow_html=True)
+k4.markdown(kpi_html("VoC 미처리", str(voc_open)+"건",
+    "발생 {}건 중".format(voc_issued),
+    (voc_open/voc_issued*100) if voc_issued else 0, C["red"]),
+    unsafe_allow_html=True)
+k5.markdown(kpi_html("철거 장비 누계", str(eq_total)+"대",
+    "1~3월 합산", 55, C["teal"]),
+    unsafe_allow_html=True)
+
+st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+# ── 탭 ───────────────────────────────────────────────────────
+tab1, tab2, tab3 = st.tabs(["차트 현황", "월별 절감 상세", "사업유형 상세"])
+
+# ════════ TAB 1 ═══════════════════════════════════════════════
+with tab1:
+
+    def chart_card_start(title, sub, legend_html, stat_html):
+        st.markdown(
+            '<div class="chart-card">'
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start">'
+            '<div><div class="chart-title">{}</div>'
+            '<div class="chart-sub">{}</div></div>'
+            '<div class="leg-row">{}</div></div>'
+            '<div class="stat-row">{}</div>'.format(title, sub, legend_html, stat_html),
+            unsafe_allow_html=True,
+        )
+
+    def chart_card_end():
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    def leg(color, label, style="dot"):
+        if style == "line":
+            shape = '<span class="leg-line" style="background:{}"></span>'.format(color)
+        elif style == "dash":
+            shape = '<span class="leg-dash" style="border-color:{}"></span>'.format(color)
+        else:
+            shape = '<span class="leg-dot" style="background:{}"></span>'.format(color)
+        return '<span class="leg-item">{}{}</span>'.format(shape, label)
+
+    def chip(label, value, color=None):
+        val_str = '<b style="color:{}">{}</b>'.format(color, value) if color else '<b>{}</b>'.format(value)
+        return '<span class="stat-chip">{} {}</span>'.format(label, val_str)
+
+    m_sum = monthly_summary(df_pool)
+    valid = m_sum[m_sum["실적"] > 0]
+
+    # ── 상단 2열 ─────────────────────────────────────────────
+    col1, col2 = st.columns(2)
+
+    with col1:
+        legend = (leg(C["blue"],"월 실적") +
+                  leg("#B5D4F4","월 목표","dot") +
+                  leg(C["green"],"누계 실적","line") +
+                  leg(C["red"],"누계 목표","dash"))
+        stats  = (chip("누계", str(total_conf), C["green"]) +
+                  chip("목표", str(ANNUAL_GOAL)) +
+                  chip("달성", str(pct_conf)+"%", C["green"]))
+        chart_card_start("목표 대비 실적", "월별 + 누계", legend, stats)
+
+        fig1 = make_subplots(specs=[[{"secondary_y": True}]])
+        fig1.add_trace(go.Bar(x=m_sum["월"], y=m_sum["실적"], name="월 실적",
+                              marker_color=C["blue"], marker_line_width=0), secondary_y=False)
+        fig1.add_trace(go.Scatter(
+            x=valid["월"], y=valid["누계달성률"], name="누계 달성률",
+            mode="lines+markers+text",
+            line=dict(color=C["green"], width=2.5),
+            marker=dict(size=7, color=C["green"], line=dict(color="white",width=1.5)),
+            text=[str(v)+"%" for v in valid["누계달성률"]],
+            textposition="top center", textfont=dict(size=10, color=C["green"]),
+        ), secondary_y=True)
+        fig1.add_hline(y=100, line_dash="dash", line_color=C["red"], line_width=1.5,
+                       secondary_y=True, annotation_text="목표", annotation_font_size=9)
+        fig1.update_layout(height=240, barmode="group",
+                           margin=dict(l=0,r=8,t=4,b=0),
+                           plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                           showlegend=False)
+        fig1.update_yaxes(title_text="개소", secondary_y=False, gridcolor=GC, tickfont=dict(size=10))
+        fig1.update_yaxes(title_text="달성률(%)", secondary_y=True, range=[0,135], tickfont=dict(size=10))
+        fig1.update_xaxes(tickfont=dict(size=10))
+        st.plotly_chart(fig1, width="stretch")
+        chart_card_end()
+
+    with col2:
+        conf_m = ["1월","2월","3월"]
+        rent_m, elec_m, cumul_m, run = [], [], [], 0.0
+        for m in conf_m:
+            s = df_pool[df_pool["off_month"]==m]
+            r = round(s["savings_ann"].sum()*0.85/10000, 2)
+            e = round(s["elec_ann"].sum()/10000, 2)
+            run = round(run+r+e, 2)
+            rent_m.append(r); elec_m.append(e); cumul_m.append(run)
+
+        legend2 = (leg(C["green"],"임차") + leg(C["amber"],"전기만") + leg(C["blue"],"누계","line"))
+        stats2  = (chip("임차", str(rent_conf)+"억", C["green"]) +
+                   chip("전기", str(elec_conf)+"억", C["amber"]) +
+                   chip("합계", str(round(rent_conf+elec_conf,1))+"억", C["blue"]))
+        chart_card_start("절감 실적", "임차·전기 월별 + 누계", legend2, stats2)
+
+        fig2 = make_subplots(specs=[[{"secondary_y": True}]])
+        fig2.add_trace(go.Bar(x=conf_m, y=rent_m, name="임차료",
+                              marker_color=C["green"], marker_line_width=0), secondary_y=False)
+        fig2.add_trace(go.Bar(x=conf_m, y=elec_m, name="전기료",
+                              marker_color=C["amber"], marker_line_width=0), secondary_y=False)
+        fig2.add_trace(go.Scatter(x=conf_m, y=cumul_m, name="누계",
+                                   mode="lines+markers",
+                                   line=dict(color=C["blue"],width=2),
+                                   marker=dict(size=6, color=C["blue"])), secondary_y=True)
+        fig2.update_layout(height=240, barmode="stack",
+                           margin=dict(l=0,r=8,t=4,b=0),
+                           plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                           showlegend=False)
+        fig2.update_yaxes(title_text="억원", secondary_y=False, gridcolor=GC, tickfont=dict(size=10))
+        fig2.update_yaxes(title_text="누계(억)", secondary_y=True, tickfont=dict(size=10))
+        fig2.update_xaxes(tickfont=dict(size=10))
+        st.plotly_chart(fig2, width="stretch")
+        chart_card_end()
+
+    # ── 하단 2열 ─────────────────────────────────────────────
+    col3, col4 = st.columns(2)
+
+    with col3:
+        eq   = equipment_summary(df_pool)
+        eq_m = [m for m in ["1월","2월","3월"] if m in eq]
+        ETYPE  = ["RRU","BBU","안테나","기타"]
+        ECOLOR = [C["blue"],C["green"],C["amber"],C["purple"]]
+        eq_totals = [sum(eq[m].values()) for m in eq_m]
+
+        legend3 = "".join(leg(c, t) for t,c in zip(ETYPE,ECOLOR))
+        stats3  = "".join(chip(m, str(t)+"대") for m,t in zip(eq_m,eq_totals))
+        stats3 += chip("누계", str(sum(eq_totals))+"대", C["teal"])
+        chart_card_start("철거 장비 수량", "장비 Type별 / 월별", legend3, stats3)
+
+        fig3 = go.Figure()
+        for t,c in zip(ETYPE, ECOLOR):
+            fig3.add_trace(go.Bar(x=eq_m, y=[eq[m][t] for m in eq_m],
+                                   name=t, marker_color=c, marker_line_width=0))
+        fig3.update_layout(height=240, barmode="stack",
+                           margin=dict(l=0,r=0,t=4,b=0),
+                           plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                           showlegend=False)
+        fig3.update_yaxes(title_text="대", gridcolor=GC, tickfont=dict(size=10))
+        fig3.update_xaxes(tickfont=dict(size=10))
+        st.plotly_chart(fig3, width="stretch")
+        chart_card_end()
+
+    with col4:
+        legend4 = (leg(C["red"],"발생") + leg(C["green"],"완료") +
+                   leg(C["amber"],"미처리 누계","line"))
+        stats4  = (chip("발생", str(voc_issued)+"건", C["red"]) +
+                   chip("완료", str(int(voc_df["처리완료"].sum()))+"건", C["green"]) +
+                   chip("미처리", str(voc_open)+"건", C["amber"]))
+        chart_card_start("VoC 현황", "월별 발생·처리·미처리 누계", legend4, stats4)
+
+        if voc_df.empty:
+            st.info("VoC 데이터가 없습니다.")
+        else:
+            fig4 = make_subplots(specs=[[{"secondary_y": True}]])
+            fig4.add_trace(go.Bar(x=voc_df["월"], y=voc_df["발생"],
+                                   name="발생", marker_color=C["red"], marker_line_width=0),
+                           secondary_y=False)
+            fig4.add_trace(go.Bar(x=voc_df["월"], y=voc_df["처리완료"],
+                                   name="완료", marker_color=C["green"], marker_line_width=0),
+                           secondary_y=False)
+            fig4.add_trace(go.Scatter(x=voc_df["월"], y=voc_df["미처리누계"],
+                                       name="미처리 누계",
+                                       mode="lines+markers",
+                                       line=dict(color=C["amber"],width=2),
+                                       marker=dict(size=6,color=C["amber"])),
+                           secondary_y=True)
+            fig4.update_layout(height=240, barmode="group",
+                               margin=dict(l=0,r=8,t=4,b=0),
+                               plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                               showlegend=False)
+            fig4.update_yaxes(title_text="건", secondary_y=False,
+                               gridcolor=GC, tickfont=dict(size=10), dtick=1)
+            fig4.update_yaxes(title_text="미처리 누계", secondary_y=True,
+                               tickfont=dict(size=10), dtick=1)
+            fig4.update_xaxes(tickfont=dict(size=10))
+            st.plotly_chart(fig4, width="stretch")
+        chart_card_end()
+
+# ════════ TAB 2: 월별 절감 상세 ══════════════════════════════
+with tab2:
+    st.markdown("##### 월별 절감 실적 상세")
+    st.caption("투자비 차감 후 순절감 기준 · 1~3월 확정")
+
+    m_sum2 = monthly_summary(df_pool)
+    STATUS_STYLE = {"확정":("#EAF3DE","#3B6D11"), "검토중":("#FAEEDA","#854F0B"), "예정":("#F1EFE8","#5F5E5A")}
+
+    def _badge(text, bg, fg):
+        return '<span style="background:{};color:{};border-radius:4px;padding:1px 6px;font-size:10px;font-weight:500">{}</span>'.format(bg,fg,text)
+
+    def _fmt(v, suffix="", color=None):
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            return '<span style="color:#888">—</span>'
+        s = str(v)+suffix
+        if color:
+            return '<span style="color:{};font-weight:500">{}</span>'.format(color,s)
+        return s
+
+    rows_html = []
+    for _, row in m_sum2.iterrows():
+        mon=row["월"]; actual=int(row["실적"]) if row["실적"] else 0
+        cumul=row["누계"]; pct=row["누계달성률"]
+        c_ije=int(row["임차+전기"]); c_elec=int(row["전기만"]); c_none=int(row["절감없음"])
+        r_rent=row["임차료절감"]; r_elec=row["전기료절감"]
+        r_inv=row["투자비"]; r_net=row["순절감"]; status=row["상태"]
+        if pct is not None and not pd.isna(pct):
+            pc = C["green"] if pct>=100 else (C["amber"] if pct>=50 else C["red"])
+            pct_html='<span style="color:{};font-weight:500">{}%</span>'.format(pc,pct)
+        else:
+            pct_html='<span style="color:#888">—</span>'
+        cumul_html=_fmt(cumul,"건") if (cumul and not pd.isna(cumul)) else '<span style="color:#888">—</span>'
+        sbg,sfg=STATUS_STYLE.get(status,("#F1EFE8","#5F5E5A"))
+        rows_html.append("".join([
+            "<tr>",
+            "<td><b>{}</b></td>".format(mon),
+            '<td style="text-align:right">{}</td>'.format(_fmt(actual if actual else None,"건",C["green"])),
+            '<td style="text-align:right">{}</td>'.format(cumul_html),
+            '<td style="text-align:right">{}</td>'.format(pct_html),
+            '<td style="text-align:right">{}</td>'.format(_badge(c_ije,"#EAF3DE","#3B6D11")),
+            '<td style="text-align:right">{}</td>'.format(_badge(c_elec,"#FAEEDA","#854F0B")),
+            '<td style="text-align:right">{}</td>'.format(_badge(c_none,"#F1EFE8","#5F5E5A")),
+            '<td style="text-align:right">{}</td>'.format(_fmt(r_rent if r_rent else None,"억",C["green"])),
+            '<td style="text-align:right">{}</td>'.format(_fmt(r_elec if r_elec else None,"억",C["amber"])),
+            '<td style="text-align:right">{}</td>'.format(_fmt(r_inv  if r_inv  else None,"억",C["red"])),
+            '<td style="text-align:right">{}</td>'.format(_fmt(r_net  if r_net  else None,"억",C["green"])),
+            "<td>{}</td>".format(_badge(status,sbg,sfg)),
+            "</tr>",
+        ]))
+
+    HEADERS=["월","실적","누계","누계달성률","임차+전기","전기만","절감없음","임차료절감","전기료절감","투자비","순절감","상태"]
+    th="padding:5px;border-bottom:1px solid rgba(128,128,128,0.15);"
+    st.markdown(
+        '<table style="width:100%;border-collapse:collapse;font-size:11px">'
+        '<thead><tr style="background:var(--secondary-background-color)">'
+        +"".join('<th style="{}{}">{}</th>'.format(th,"text-align:left" if i==0 else "text-align:right",h) for i,h in enumerate(HEADERS))
+        +"</tr></thead><tbody>"+"".join(rows_html)+"</tbody></table>",
+        unsafe_allow_html=True,
+    )
+
+    st.divider()
+    td1,td2 = st.columns(2)
+    with td1:
+        st.markdown("##### 누계 달성률 추이")
+        valid2=m_sum2[m_sum2["누계달성률"].notna()]
+        fig_p=go.Figure()
+        fig_p.add_trace(go.Scatter(
+            x=valid2["월"], y=valid2["누계달성률"],
+            mode="lines+markers+text",
+            line=dict(color=C["blue"],width=2.5),
+            marker=dict(size=8,color=C["blue"],line=dict(color="white",width=2)),
+            fill="tozeroy", fillcolor="rgba(24,95,165,0.08)",
+            text=[str(v)+"%" for v in valid2["누계달성률"]],
+            textposition="top center", textfont=dict(size=11),
+        ))
+        fig_p.add_hline(y=100, line_dash="dash", line_color=C["red"],
+                        annotation_text="목표 100%", annotation_font_size=10)
+        fig_p.update_layout(height=200, margin=dict(l=0,r=0,t=10,b=0),
+                            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                            showlegend=False,
+                            yaxis=dict(range=[0,120],ticksuffix="%",gridcolor=GC,tickfont=dict(size=10)),
+                            xaxis=dict(tickfont=dict(size=10)))
+        st.plotly_chart(fig_p, width="stretch")
+
+    with td2:
+        st.markdown("##### 절감유형 비율")
+        sav_cnt=df_conf["sav_type"].value_counts()
+        fig_s=go.Figure(go.Pie(
+            labels=sav_cnt.index.tolist(), values=sav_cnt.values.tolist(),
+            marker=dict(colors=[SAV_C.get(l,C["gray"]) for l in sav_cnt.index]),
+            hole=0.65, textinfo="none",
+        ))
+        fig_s.update_layout(height=200, margin=dict(l=0,r=0,t=10,b=0),
+                            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                            legend=dict(font=dict(size=10),orientation="v",x=0.72,y=0.5))
+        st.plotly_chart(fig_s, width="stretch")
+
+# ════════ TAB 3: 사업유형 상세 ═══════════════════════════════
+with tab3:
+    bs=biz_type_summary(df_conf)
+    ta1,ta2=st.columns([3,2])
+
+    with ta1:
+        st.markdown("##### 사업유형 × 절감유형")
+        fig_a1=go.Figure()
+        for sav,color in SAV_C.items():
+            fig_a1.add_trace(go.Bar(name=sav, x=bs["사업유형"], y=bs[sav],
+                                    marker_color=color, marker_line_width=0))
+        fig_a1.update_layout(height=240, barmode="stack",
+                             margin=dict(l=0,r=0,t=10,b=0),
+                             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                             legend=dict(orientation="h",yanchor="bottom",y=1.02,font=dict(size=10)))
+        fig_a1.update_yaxes(title_text="건수", gridcolor=GC, tickfont=dict(size=10))
+        fig_a1.update_xaxes(tickfont=dict(size=11))
+        st.plotly_chart(fig_a1, width="stretch")
+
+    with ta2:
+        st.markdown("##### 임차료 절감 (억원)")
+        fig_a2=go.Figure(go.Bar(
+            x=bs["임차료절감"], y=bs["사업유형"], orientation="h",
+            marker_color=[BIZ_C.get(b,C["gray"]) for b in bs["사업유형"]],
+            marker_line_width=0,
+            text=[str(v)+"억" for v in bs["임차료절감"]], textposition="outside",
+        ))
+        fig_a2.update_layout(height=240, margin=dict(l=0,r=45,t=10,b=0),
+                             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                             showlegend=False)
+        fig_a2.update_xaxes(title_text="억원", tickfont=dict(size=10), gridcolor=GC)
+        fig_a2.update_yaxes(tickfont=dict(size=11))
+        st.plotly_chart(fig_a2, width="stretch")
+
+    st.divider()
+    st.markdown("##### 사업유형별 상세")
+
+    def _bep_html(v):
+        if v is None or (isinstance(v,float) and pd.isna(v)): return "—"
+        vi=int(v); c=C["green"] if vi<=24 else (C["amber"] if vi<=48 else C["red"])
+        return '<span style="color:{};font-weight:500">{}개월</span>'.format(c,vi)
+
+    rows_biz=[]
+    for _,row in bs.iterrows():
+        biz=row["사업유형"]; bc=BIZ_C.get(biz,C["gray"]); nc=C["green"] if row["순절감"]>=0 else C["red"]
+        rows_biz.append("".join([
+            "<tr>",
+            '<td><span style="background:{}22;color:{};border-radius:4px;padding:1px 7px;font-size:10px;font-weight:500">{}</span></td>'.format(bc,bc,biz),
+            '<td style="text-align:right;font-weight:500">{}</td>'.format(int(row["건수"])),
+            '<td style="text-align:right"><span style="background:#EAF3DE;color:#3B6D11;border-radius:3px;padding:0 5px;font-size:10px">{}</span></td>'.format(int(row["임차+전기"])),
+            '<td style="text-align:right"><span style="background:#FAEEDA;color:#854F0B;border-radius:3px;padding:0 5px;font-size:10px">{}</span></td>'.format(int(row["전기만"])),
+            '<td style="text-align:right"><span style="background:#F1EFE8;color:#5F5E5A;border-radius:3px;padding:0 5px;font-size:10px">{}</span></td>'.format(int(row["절감없음"])),
+            '<td style="text-align:right;color:{};font-weight:500">{}억</td>'.format(C["green"],row["임차료절감"]),
+            '<td style="text-align:right;color:{}">{}억</td>'.format(C["amber"],row["전기료절감"]),
+            '<td style="text-align:right;color:{}">{}</td>'.format(C["red"],"{}억".format(row["투자비"]) if row["투자비"] else "—"),
+            '<td style="text-align:right;color:{};font-weight:500">{}억</td>'.format(nc,row["순절감"]),
+            '<td style="text-align:right">{}</td>'.format(_bep_html(row["평균BEP"])),
+            "</tr>",
+        ]))
+
+    BIZ_H=["사업유형","건수","임차+전기","전기만","절감없음","임차료절감","전기료절감","투자비","순절감","평균BEP"]
+    st.markdown(
+        '<table style="width:100%;border-collapse:collapse;font-size:11px">'
+        '<thead><tr style="background:var(--secondary-background-color)">'
+        +"".join('<th style="padding:5px;border-bottom:1px solid rgba(128,128,128,0.15);text-align:{}">{}</th>'.format("left" if i==0 else "right",h) for i,h in enumerate(BIZ_H))
+        +"</tr></thead><tbody>"+"".join(rows_biz)+"</tbody></table>",
+        unsafe_allow_html=True,
+    )
+
+    opt=df_conf[df_conf["biz_type"]=="최적화후폐국"]
+    opt_inv=opt[opt["inv_total"]>0]
+    if not opt_inv.empty:
+        avg_bep=opt_inv["bep_months"].dropna().mean()
+        inv_sum=round(opt_inv["inv_total"].sum()/10000,2)
+        net_sum=round(opt_inv["net_savings"].sum()/10000,2)
+        bep_str="{}개월".format(int(avg_bep)) if not pd.isna(avg_bep) else "—"
+        st.info("📌 **최적화후폐국** 투자비 발생 {}건 / 평균 BEP **{}**  \n순절감 합계: {}억원 (투자비 {}억 차감 후)".format(len(opt_inv),bep_str,net_sum,inv_sum))
