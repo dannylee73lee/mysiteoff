@@ -149,16 +149,16 @@ tbody tr td {
 </style>
 """, unsafe_allow_html=True)
 
-# 3. 색상 팔레트 및 전역 설정 (미세 조정)
+# 3. 색상 팔레트 및 전역 설정 (파이썬 주석으로 수정 완료)
 C = dict(
-    blue="#1D4ED8",   /* 더 선명하고 신뢰감 있는 블루 */
-    green="#10B981",  /* 차분한 에메랄드 그린 */
-    amber="#F59E0B",  /* 따뜻한 앰버 */
-    red="#EF4444",    /* 선명한 레드 */
+    blue="#1D4ED8",   # 더 선명하고 신뢰감 있는 블루
+    green="#10B981",  # 차분한 에메랄드 그린
+    amber="#F59E0B",  # 따뜻한 앰버
+    red="#EF4444",    # 선명한 레드
     purple="#8B5CF6",
     teal="#14B8A6",
     gray="#94A3B8",
-    grid="#E2E8F0"    /* 그리드 색상 연하게 */
+    grid="#E2E8F0"    # 그리드 색상 연하게
 )
 BIZ_C = {"단순폐국": C["blue"], "이설후폐국": C["purple"], "최적화후폐국": C["teal"]}
 SAV_C = {"임차+전기": C["green"], "전기만": C["amber"], "절감없음": C["gray"]}
@@ -290,7 +290,7 @@ st.markdown("<div style='height:15px'></div>", unsafe_allow_html=True)
 # ── 탭 ───────────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs(["📊 통합 대시보드", "📅 월별 상세 실적", "🏢 사업유형별 분석"])
 
-# 5. Plotly 레이아웃 공통 설정 (업그레이드)
+# 5. Plotly 레이아웃 공통 설정
 def update_plotly_layout(fig):
     fig.update_layout(
         margin=dict(l=10, r=10, t=10, b=10),
@@ -307,6 +307,7 @@ def update_plotly_layout(fig):
             font=dict(size=10)
         )
     )
+    # 그리드 및 축 설정 (주석 수정)
     fig.update_xaxes(
         gridcolor=C["grid"],
         tickfont=dict(size=10, color="#64748B"),
@@ -316,8 +317,7 @@ def update_plotly_layout(fig):
         gridcolor=C["grid"],
         tickfont=dict(size=10, color="#64748B"),
         zeroline=False
-    )
-
+    )2
 # ════════ TAB 1 ═══════════════════════════════════════════════
 with tab1:
     # (기존 차트 카드 구성 함수 유지하되 디자인 미세 조정)
