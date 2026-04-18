@@ -474,7 +474,7 @@ with tab1:
             fig3.add_trace(go.Bar(
                 x=eq_m, y=[eq[m][t] for m in eq_m], name=t,
                 marker=dict(color=c, opacity=0.85, line=dict(width=0)),
-                hovertemplate="%{x} {}: %{{y}}대<extra></extra>".format(t),
+                hovertemplate="%{{x}} {}: %{{y}}대<extra></extra>".format(t),
             ))
         fig3.update_layout(**base_layout(height=240, barmode="stack"))
         fig3.update_xaxes(**styled_xaxis())
@@ -638,7 +638,7 @@ with tab3:
             fig_a1.add_trace(go.Bar(
                 name=sav, x=bs["사업유형"], y=bs[sav],
                 marker=dict(color=color, opacity=0.85, line=dict(width=0)),
-                hovertemplate="%{x} {}: %{{y}}건<extra></extra>".format(sav),
+                hovertemplate="%{{x}} {}: %{{y}}건<extra></extra>".format(sav),
             ))
         fig_a1.update_layout(**base_layout(height=240, barmode="stack"))
         fig_a1.update_xaxes(**styled_xaxis())
