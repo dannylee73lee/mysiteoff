@@ -98,6 +98,12 @@ HONBU_COLOR = {
 }
 BIZ_C = {"단순폐국":C["blue"],"이설후폐국":C["purple"],"최적화후폐국":C["teal"]}
 SAV_C = {"임차+전기":C["green"],"전기만":C["amber"],"절감없음":C["gray"]}
+def hex_rgba(hex_color: str, alpha: float = 0.08) -> str:
+    """#RRGGBB → rgba(r,g,b,a)"""
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2],16), int(h[2:4],16), int(h[4:6],16)
+    return "rgba({},{},{},{})".format(r, g, b, alpha)
+
 GC    = "rgba(128,128,128,0.07)"
 
 # ── 공통 Plotly 설정 ─────────────────────────────────────────
@@ -490,7 +496,7 @@ with tab2:
         fig_p.add_trace(go.Scatter(
             x=valid2["월"],y=valid2["누계달성률"],mode="lines+markers+text",
             line=dict(color=honbu_color,width=2.5,shape="spline"),
-            fill="tozeroy",fillcolor=honbu_color.replace("#","rgba(").replace("rgb","rgba")+"18)" if "#" in honbu_color else "rgba(26,111,196,0.08)",
+            fill="tozeroy", fillcolor=hex_rgba(honbu_color, 0.08),
             marker=dict(size=9,color="white",line=dict(color=honbu_color,width=2.5)),
             text=["{}%".format(v) for v in valid2["누계달성률"]],
             textposition="top center",textfont=dict(size=11,color=honbu_color),

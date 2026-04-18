@@ -73,6 +73,8 @@ RENT_COL_MAP = {
 }
 
 # 사용자 편집 컬럼 (T~AC열)
+SUBMIT_MONTHS = ["4월", "5월", "6월"]   # 제출 여부 컬럼 (향후 확장 가능)
+
 EXTRA_COLS = {
     "sav_type":      "절감유형",
     "inv_bun":       "투자비_분기",
@@ -80,6 +82,7 @@ EXTRA_COLS = {
     "confirm_month": "폐국월_확정",
     "savings_fix":   "절감금액_확정",
     "note":          "비고",
+    **{"submit_{}".format(m): "{}제출".format(m) for m in SUBMIT_MONTHS},
 }
 EDITABLE_EXTRA = set(EXTRA_COLS.keys())
 
