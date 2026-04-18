@@ -11,7 +11,7 @@ from plotly.subplots import make_subplots
 
 sys.path.insert(0, str(Path(__file__).parent))
 from utils.data_loader import (
-    load_raw, get_rent_data, apply_extra, load_extra,
+    load_raw, enrich_rent, apply_extra, load_extra,
     file_hash, MAIN_FILES, RENT_FILE,
     HONBU_ORDER, MONTH_ORDER, CONFIRMED, REVIEW,
     DEFAULT_HONBU, _make_sample,
@@ -229,7 +229,7 @@ with st.sidebar:
 @st.cache_data(show_spinner=False)
 def get_data(honbu, fhash_main, fhash_rent):
     df_raw  = load_raw(fhash_main, honbu)
-    df_rent = get_rent_data(df_raw)
+    df_rent = enrich_rent(df_raw)
     extra   = load_extra()
     df      = apply_extra(df_rent, extra)
     df_pool = df[
